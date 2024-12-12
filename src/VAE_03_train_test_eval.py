@@ -5,75 +5,161 @@ Created on Tue Nov  5 2024
 @author: unterlass/wölflingseder
 """
 '''
-pre-processing for VAE based anomaly detection
+Code for the training, testing, of the model and the evaluation of the anomaly
+detection
+
 '''
 
-import numpy as np
-import pandas as pd
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-
-from tqdm import tqdm
-# import seaborn as sns
-import matplotlib
-import matplotlib as mpl
+from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import statsmodels.stats.stattools
+import seaborn as sns
 
-tunnel = 'Synth_BBT_UT' #'Synth_BBT' # 'UT' # 'BBT'
+from VAE_05_model import VAE
 
-class VAE(nn.Module):
-    def __init__(self, input_size, hidden_size_enc, hidden_size_dec, latent_size, sequence_length):
-        super(VAE, self).__init__()
-        
-        self.hidden_size_enc = hidden_size_enc
-        self.hidden_size_dec = hidden_size_dec
+# =============================================================================
+# Hyperparameters
+# =============================================================================
+tunnel = 'Synth_BBT_UT' #'Synth_BBT' #'UT'
 
-        self.encoder = nn.LSTM(input_size, hidden_size_enc, batch_first=True, bidirectional=True)
-        
-        # layers to latent size from which the reparameterization is done
-        self.fc_mu = nn.LSTM(hidden_size_enc, latent_size, batch_first=True)
-        self.fc_logvar = nn.LSTM(hidden_size_enc, latent_size, batch_first=True)
-            
-        self.decoder1 = nn.LSTM(latent_size, hidden_size_dec, batch_first=True, bidirectional=True)
-        self.decoder2 = nn.LSTM(hidden_size_dec, input_size, batch_first=True)
-        
-        
-    # sampling threw reparameterization 
-    def reparameterize(self, mu, logvar):
-        std = torch.exp(0.5 * logvar)
-        epsilon = torch.randn_like(std)
-         
-        return mu + epsilon * std
+if tunnel == 'Synth_BBT' or 'Synth_BBT_UT':    
+    input_size = 5  # Size of input features
+else:
+    input_size = 8
 
+hidden_size_encoder = 30  # Size of hidden state in LSTM layers of encoder
+hidden_size_decoder = 30 # Size of hidden state in LSTM layers of decoder
+latent_size = 3  # Size of the latent representation
+batch_size = 64
+num_epochs =  50
+learning_rate = 0.0002
+sequence_length = 100
+beta = 0.001
 
-    def forward(self, x):
-        
-        # Encoder
-        out, _ = self.encoder(x)
-        out = torch.add(out[:, :, :self.hidden_size_enc], torch.flip(out[:, :, self.hidden_size_enc:], [2]))/2
-        out = F.leaky_relu(out)
-        
-        # Latent variables sampling with reparametrization trick
-        mu, _ = self.fc_mu(out)
-        mu = F.leaky_relu(mu)
-        logvar, _ = self.fc_logvar(out)
-        logvar = F.leaky_relu(logvar)
-        
-        if self.training:
-            z = self.reparameterize(mu, logvar)
-        else:
-            z = mu
-           
-        dec, _ = self.decoder1(z)
-        dec = torch.add(dec[:, :, :self.hidden_size_dec], torch.flip(dec[:, :, self.hidden_size_dec:], [2]))/2
-        dec = F.leaky_relu(dec)
-        dec, _ = self.decoder2(dec)
-        
-        return dec, mu, logvar
+# =============================================================================
+# Load datasets and create DataLoader
+# =============================================================================
+if tunnel == 'UT':
+    class = 4
+    start_val = 3.5
+    end_val = 4.5
+    start_test_1 = 2.4
+    end_test_1 = 2.8
+    start_test_2 = 4.9
+    end_test_2 = 5.25
+    start_test_3 = 5.9
+    end_test_3 = 6.2
     
+elif tunnel == 'Synth_BBT_UT':
+    class = 4
+    start_val = 0
+    end_val = 0.25
+    start_test_1 = 2.4
+    end_test_1 = 2.8
+    start_test_2 = 4.9
+    end_test_2 = 5.25
+    start_test_3 = 5.9
+    end_test_3 = 6.2
+    
+elif tunnel == 'Synth_BBT':
+    class = 3
+    start_val = 0
+    end_val = 0.25
+    start_test_1 = 3.5
+    end_test_1 = 4.5
+    start_test_2 = 5.0
+    end_test_2 = 6.0
+    start_test_3 = 9.5
+    end_test_3 = 10.5
+    
+elif tunnel == 'BBT':
+    class = 3
+    start_val = 10.5
+    end_val = 11.5
+    start_test_1 = 3.5
+    end_test_1 = 4.5
+    start_test_2 = 5.0
+    end_test_2 = 6.0
+    start_test_3 = 9.5
+    end_test_3 = 10.5
 
+else:
+    print('tunnel not defined')
+    
+file_name = f'{tunnel}_class{class}_seq{sequence_length}_beta{beta}_ep{num_epochs}_hse{hidden_size_encoder}_hsd{hidden_size_decoder}_ls{latent_size}'
+
+# train dataset
+train_dataset = torch.load(
+    f'01_data/{tunnel}/datasets/{tunnel}_{class}_train_dataset_seq{sequence_length}.pt'
+    )
+
+train_dataloader = DataLoader(
+    train_dataset,
+    batch_size=batch_size,
+    shuffle=False
+    )
+
+# test 1-3 datasets
+test_dataset1 = torch.load(
+    f'01_data/{tunnel}/datasets/{tunnel}_{class}_test_dataset1_seq{sequence_length}_{start_test_1}-{end_test_1}.pt')
+
+test_dataloader1 = DataLoader(
+    test_dataset1,
+    batch_size=batch_size,
+    shuffle=False
+    )
+
+test_dataset2 = torch.load(
+    f'01_data/{tunnel}/datasets/{tunnel}_{class}_test_dataset2_seq{sequence_length}_{start_test_2}-{end_test_2}.pt')
+
+test_dataloader2 = DataLoader(
+    test_dataset2,
+    batch_size=batch_size,
+    shuffle=False
+    )
+
+test_dataset3 = torch.load(
+    f'01_data/{tunnel}/datasets/{tunnel}_{class}_test_dataset3_seq{sequence_length}_{start_test_3}-{end_test_3}.pt')
+
+test_dataloader3 = DataLoader(
+    test_dataset3,
+    batch_size=batch_size,
+    shuffle=False)
+
+# validation dataset
+val_dataset = torch.load(
+    f'01_data/{tunnel}/datasets/{tunnel}_{class}_val_dataset_seq{sequence_length}_{start_val}-{end_val}.pt'
+    )
+
+val_dataloader = DataLoader(
+    val_dataset,
+    batch_size=batch_size,
+    shuffle=False
+    )
+
+
+# =============================================================================
+# model
+# =============================================================================
+# create model
+vae = VAE(input_size,
+          hidden_size_encoder,
+          hidden_size_decoder,
+          latent_size,
+          sequence_length
+          )
+
+# # load model
+# model = torch.load('withoutGI4_seq100_beta0.001_ep50.pth')
+# history = torch.load('history of withoutGI4_seq100_beta0.001_ep50.pth.pt')
+
+
+# =============================================================================
+# training
+# =============================================================================
 def train_vae(vae,
               train_dataloader,
               test_dataloader1,
@@ -216,7 +302,26 @@ def train_vae(vae,
     return vae.eval(), history
 
 
-# observing reconstruction errors for anomaly detection to help find a threshhold
+# Train the VAE / plot learning curve 
+model, history = train_vae(vae,
+                           train_dataloader,
+                           test_dataloader1,
+                           test_dataloader2,
+                           test_dataloader3,
+                           val_dataloader,
+                           num_epochs,
+                           learning_rate,
+                           beta,
+                           file_name
+                           )
+
+# # load best model after training model
+# model = torch.load(f'02_Results/Synth_BBT/01_Models/{file_name}' + '.pth')
+# history = torch.load(f'02_Results/Synth_BBT/01_Models/history of {file_name}.pt')
+
+# =============================================================================
+# test the model
+# =============================================================================
 def test_vae(vae,
              dataloader
              ):
@@ -246,8 +351,105 @@ def test_vae(vae,
     
     return error_list, mu, logvar
 
+error_test1, lat_mu_test1, lat_logvar_test1 = test_vae(model,
+                                                       test_dataloader1,
+                                                       )
+error_test2, lat_mu_test2, lat_logvar_test2 = test_vae(model,
+                                                       test_dataloader2,
+                                                       )
+error_test3, lat_mu_test3, lat_logvar_test3 = test_vae(model,
+                                                       test_dataloader3,
+                                                       )
+error_test_sum = error_test1 + error_test2 + error_test3
 
-# plots reconstruction error and threshold and GI as backgroundcolor
+# =============================================================================
+# threshold
+# =============================================================================
+
+# set threshold for every test section and plot histogram
+def threshold(error_test, title):
+    error_test = np.array(error_test)
+    print(error_test.max())
+    
+    quantile = np.quantile(error_test, 0.99)
+    print('99% quantil:', quantile)
+
+    q1 = np.percentile(error_test, 25)
+    q3 = np.percentile(error_test, 75)
+    iqr = q3 - q1
+
+    boundary_low = q1 - 1.5 * iqr
+    boundary_up = q3 + 1.5 * iqr
+
+    print('boundary up:', boundary_up)
+
+    mc = statsmodels.stats.stattools.medcouple(error_test, axis=0)
+
+    skewed_boundary_low = q1 - 1.5*np.exp(-4*mc)*iqr
+    skewed_boundary_up = q3 + 1.5*np.exp(3*mc)*iqr
+
+    print('low:', 1.5*np.exp(3*mc))
+
+    print('skewed boundary up:', skewed_boundary_up)
+    print('skewed boundary low:', skewed_boundary_low)
+    
+    # plot error
+    sns.set(style="ticks")
+
+    f, (ax_box, ax_hist) = plt.subplots(2, sharex=True, figsize=(15, 10),
+                                        gridspec_kw={"height_ratios": (.15, .85)})
+
+    sns.boxplot(error_test,
+                ax=ax_box,
+                orient='h',
+                whis=(q3 + 1.5*np.exp(3*mc)),
+                color='lightgrey',
+                linewidth=3)
+    
+    sns.distplot(error_test, ax=ax_hist) # .set_title(f'{title}')
+    
+    # if error_test.max() > 0.1:
+    #     x_max = error_test.max() + 0.06
+    # elif skewed_boundary_up > error_test.max():
+    #     x_max = skewed_boundary_up + 0.005
+    # else:
+    #     x_max = error_test.max()
+
+    if error_test.max() > 0.1:
+        x_max = skewed_boundary_up + 0.005
+        
+    elif skewed_boundary_up < 0.5:
+        x_max = skewed_boundary_up + 0.5
+        
+    else:
+        x_max = error_test.max()
+            
+    plt.xlim(xmin=0, xmax = x_max)
+    plt.ylabel('Instances', fontsize='16')
+    plt.xlabel('Reconstruction Error [-]', fontsize='16')
+    plt.xticks(rotation=90, fontsize='16')
+    plt.yticks(fontsize='16')
+    plt.tight_layout()
+    
+    plt.subplots_adjust(top=0.95)
+    plt.suptitle(f'{title}', fontsize = 16)
+    
+    ax_box.set(yticks=[])
+    sns.despine(ax=ax_hist)
+    sns.despine(ax=ax_box, left=True)
+    plt.savefig(fr'02_Results\{tunnel}\02_Plots\03_threshold\{title}_{file_name}.png')
+
+    
+    return skewed_boundary_up
+
+threshold_test1 = threshold(error_test1, 'test_set_1')
+threshold_test2 = threshold(error_test2, 'test_set_2')
+threshold_test3 = threshold(error_test3, 'test_set_3')
+threshold_all = threshold(error_test_sum, 'all_test_sets')
+
+# =============================================================================
+# plot reconstruction errors
+# =============================================================================
 def plot_reconstruction_error(error_list,
                               dataloader,
                               sequence_length,
@@ -257,10 +459,8 @@ def plot_reconstruction_error(error_list,
                               threshold=1000,
                               ):
     
-    # plots distribution of amounts of certain reconstruction errors
-    # sns.displot(error_list, bins=50, kde=True);
 
-    # makes a list of the labels from the input data
+    # creates a list of the labels from the input data
     label_list = []
     for _, label in dataloader:
         for label in label:
@@ -268,18 +468,18 @@ def plot_reconstruction_error(error_list,
             label = float(label)
             label_list.append(label)
             
-    # making list of thresholds in length of amount of errors
+    # create list of thresholds in length of amount of errors
     threshold_for_plot = []
     for i in range(len(error_list)):
         threshold_for_plot.append(threshold)
         
-    # creates dataframe with the lists of the three needed values    
+    # create dataframe with the lists of the three needed values    
     df = pd.DataFrame(list(zip(
                     error_list,
                     threshold_for_plot,
                     label_list)), columns = ['Error', 'Threshold', 'Label'])
     
-    # # arrange list for Tunnel Distance at x axis
+    # arrange list for Tunnel Distance at x axis
     df['Tunnel Distance [km]'] = np.arange(start_km, (start_km*1000 + 0.05*(len(error_list)-0.9))/1000, 0.05/1000) # -0.9 only because the length somehow doesnt match without it
     
     # shifting Error for half of sequence length to have it compared in the middle of SL
@@ -373,17 +573,6 @@ def plot_reconstruction_error(error_list,
                       vmin=(df['Label'].min()),
                       vmax=(df['Label'].max()+1),
                       alpha=0.5)
-    
-        
-    # bounds = [0, 1, 2, 3, 4, 5]
-    # norm = mpl.colors.BoundaryNorm(bounds, cmap.N)    
-    # cbar = fig.colorbar(
-    #         mpl.cm.ScalarMappable(cmap=cmap, norm=norm), c,
-    #         cax=ax, orientation='vertical',
-    #         extend='both', extendfrac='auto',
-    #         spacing='uniform',
-    #         # label='Custom extension lengths, some other units',
-    #     )
 
     cbar = fig.colorbar(c, ax=ax) # , spacing='uniform'
     
@@ -408,130 +597,29 @@ def plot_reconstruction_error(error_list,
 
     return df
 
-def plot_original_data(df, start_km, end_km, feature, title):
-    
-    # creating section for test dataset
-    df_section = df[(df['Tunnel Distance [m]'] >= start_km*1000) & 
-                      (df['Tunnel Distance [m]'] < end_km*1000)]   
-    df_section = df_section.reset_index()
-    
-    # plotting
-    orig_plot = plt.figure().gca()
-    
-    orig_plot.plot(df_section['Tunnel Distance [m]'],
-                   df_section[feature],
-                   linestyle='',
-                   marker='o',
-                   markersize=1)
-    
-    # orig_plot.plot(df['Error'], linestyle='', marker='o', markersize=1)
-    
-    plt.xlim(start_km*1000, end_km*1000)
-    
-    # plotting GI as  different background colors, alternativ colors: RdYlGn_r; Accent
-    orig_plot.pcolorfast(orig_plot.get_xlim(),
-                         orig_plot.get_ylim(),
-                         df_section['Class'].values[np.newaxis],
-                         cmap='RdYlGn_r',
-                         alpha=0.2)
-    
-    plt.ylabel(feature)
-    plt.xlabel('TUNNEL DISTANCE [m]')
-    plt.title(f'{title}', fontsize='10')
-    orig_plot.xaxis.set_ticks(np.arange(start_km*1000, end_km*1000, 100))
-    plt.xticks(rotation=90)
-    
-    plt.show()
-    
-    return df_section
+df_Error_test_1 = plot_reconstruction_error(error_test1,
+                                            test_dataloader1,
+                                            sequence_length,
+                                            start_test_1,
+                                            'Test Dataset 1',
+                                            file_name,
+                                            threshold=threshold_all
+                                            )
 
-# plots examples for reconstructed sequences
-def plot_reconstructed_seq(vae, dataloader, km=0):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    vae.to(device)
-    
-    reconstructed_data_list = []
-    input_data_list =[]
+df_Error_test_2 = plot_reconstruction_error(error_test2,
+                                            test_dataloader2,
+                                            sequence_length,
+                                            start_test_2,
+                                            'Test Dataset 2',
+                                            file_name,
+                                            threshold=threshold_all
+                                            )
 
-    vae.eval()
-    with torch.no_grad():
-        for input_data, _ in dataloader:
-            
-            # initial_values = input_data[:, 0, :]
-            # input_data -= torch.roll(input_data, 1, 1)
-            # input_data[:, 0, :] = initial_values
-            
-            input_data = input_data.to(device).float()
-
-            # Forward pass
-            reconstructed_data, _, _ = vae(input_data)
-        
-            reconstructed_data_np = reconstructed_data.cpu().numpy()
-            for i in reconstructed_data_np:
-                reconstructed_data_list.append(i)
-                
-            input_data_np = input_data.cpu().numpy()
-            for i in input_data_np:
-                input_data_list.append(i) 
-    
-    # sns.lineplot(data=reconstructed_data.flatten(2).detach().numpy().squeeze())
-    # sns.lineplot(data=input_data.flatten(2).detach().numpy().squeeze())
-    plt.show()
-    
-    # creats plot with plt
-    ax = plt.figure().gca()
-    ax.plot(input_data_list[int(km*1000*20)], 
-            label=('spec. penetration - input','torque ratio - input'),
-            color='red'
-            )
-    ax.plot(reconstructed_data_list[int(km*1000*20)], 
-            label=('spec. penetration - reconstr','torque ratio - reconstr'),
-            color='green'
-            )
-    plt.ylabel('Scaled feature values')
-    plt.xlabel('Vectors of sequence')
-    plt.title(f'Sequence starting at {km} km', fontsize='10')
-    plt.legend(fontsize="8", loc='upper right')
-    plt.tight_layout()
-    # plt.savefig(f'Sequence_starting_at_{km}km.png')
-    plt.show()
-    
-    return reconstructed_data_list, input_data_list
-
-            
-# detects how many sequences are exceeding the reconstruction error threshold
-def detect_anomalies(vae, dataloader, threshold):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    vae.to(device)
-
-    vae.eval()
-    with torch.no_grad():
-        anomaly_count = 0
-        no_anomaly_count = 0
-        
-        for input_data, _ in dataloader:
-            
-            # initial_values = input_data[:, 0, :]
-            # input_data -= torch.roll(input_data, 1, 1)
-            # input_data[:, 0, :] = initial_values
-            
-            input_data = input_data.to(device).float()
-            
-            # Forward pass
-            reconstructed_data, _, _ = vae(input_data)
-
-            # Calculate reconstruction error (MSE loss)
-            error = torch.mean((reconstructed_data - input_data) ** 2,
-                               dim=(1, 2))
-            
-            # Detect anomalies based on the threshold
-            anomalies = error > threshold
-            no_anomalies = error <= threshold
-            
-            # counts anomaly sequences and non_anomaly sequences
-            anomaly_count += torch.sum(anomalies).item()
-            no_anomaly_count += torch.sum(no_anomalies).item()
-
-        print(f"Total anomalies detected:{anomaly_count}/{anomaly_count + no_anomaly_count}")
-        
-        return anomaly_count, no_anomaly_count
+df_Error_test_3 = plot_reconstruction_error(error_test3,
+                                            test_dataloader3,
+                                            sequence_length,
+                                            start_test_3,
+                                            'Test Dataset 3',
+                                            file_name,
+                                            threshold=threshold_all
+                                            )

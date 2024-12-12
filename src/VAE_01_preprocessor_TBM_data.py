@@ -1,12 +1,93 @@
- # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
-Created on Tue Nov  3 14:25:05 2020
+Created on Thu Oct 22 08:40:09 2020
 
 @author: unterlass
 """
 '''
-Function containing a pre-processing routine for TBM data
+Concat: Function to read the single .csv files containing the raw TBM data and merging
+them into a single datasets. With the options to drop data record during
+standstills of the machine and a check for missing values.
+
+Preprocessor: Function containing a pre-processing routine for TBM data
+
 '''
+# =============================================================================
+# Read single .csv files and concatenate
+# =============================================================================
+
+def concat():
+    from os import listdir
+    import pandas as pd
+
+    # import raw data and concat individual excel files to big parquet file/csv
+    folder = (r'M:\FMT-A\4000_Forschung\4400_Proj_ab_Okt2018'
+    r'\002_Laufende_Proj\ngProj\TBM_Daten\BBT\bbt-ftp\BBT Daten'
+    r'\EKS TVM\Maschienendaten\formatted')
+
+    drop_standstills = True  # set to true if standstills should be dropped
+    check_for_miss_vals = False  # set to true, it then generates plot of missing values in dataset
+    
+    def concat_tables(self, folder, drop_standstills=False,
+                      check_for_miss_vals=True):
+
+        filenames = []
+        for file in listdir(folder):
+            if file.split('.')[1] == 'csv':
+                filenames.append(file)
+
+        files = []
+
+        for i, file in enumerate(filenames[:1000]):
+
+            df = pd.read_csv(fr'{folder}\{file}', sep=';') #  encoding='latin1'
+            print(file)
+            print(f'{i} / {len(filenames)-1} csv done')  # status
+            
+            df = df.drop(df.columns[0], axis=1)
+            column_names = ['Date', 'Stroke', 'Chainage [m]', 'Tunnel Distance [m]',
+                            'Advance speed [mm/min]', 'Speed cutterhead [rpm]',
+                            'Pressure advance cylinder bottom side [bar]',
+                            'Torque cutterhead [MNm]',
+                            'Total advance force [kN]', 'Penetration [mm/rot]',
+                            'Pressure RSC left [bar]',
+                            'Pressure RSC right[bar]',
+                            'Path RSC left [mm]']
+
+            df.columns = column_names
+
+            df = df[(df['Tunnel Distance [m]'] >=0 | (df['Tunnel Distance [m]'].isnull()))] # getting rid of datapoints < 0 in Tunnel Distance or nan
+
+            files.append(df)
+
+        df = pd.concat(files, sort=True)
+
+        df.dropna(inplace=True)
+
+        # check for missing values in time series
+        if check_for_miss_vals is True:
+            self.check_for_miss_vals(df)
+
+        return df, files
+    
+    df, files = concat_tables(folder, drop_standstills=drop_standstills,  # loads the concat_tables function from the utils
+                              check_for_miss_vals=check_for_miss_vals)   # script and excutes it
+
+    if drop_standstills is False:
+        df.to_parquet(r'03_data\00_TBMdata_wStandstills.gzip', index=False)  # saves the concatenated raw data with standstills
+        # df.to_csv(fr'01_processed_data\00_TBMdata_wStandstills.csv', index=False) # as parquet or csv file in the working directory
+    else:
+        df.to_parquet(r'03_data\01_TBMdata.gzip', index=False)  # same as aboth without standstill data
+        # df.to_csv(fr'01_processed_data\00_TBMdata.csv', index=False)
+
+    return df
+
+df = concat()
+
+# =============================================================================
+# TBM operational data pre-processing routine
+# =============================================================================
+
 def preprocessor():
     import pandas as pd
     import numpy as np
@@ -132,3 +213,5 @@ def preprocessor():
 
     ###########################################################################
     return df
+
+df = preprocessor()
