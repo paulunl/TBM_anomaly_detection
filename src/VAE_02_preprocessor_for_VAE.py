@@ -22,12 +22,12 @@ from sklearn.preprocessing import MinMaxScaler
 # load the dataset
 # =============================================================================
 
-tunnel = 'FB' # 'BBT' # 'Synth_BBT_UT'
-Class = 1
+tunnel = 'UT' # 'BBT' # 'Synth_BBT_UT'
+Class = 4
 
 if tunnel == 'UT':
-    df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
-    
+    df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+    # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
     df['Class'] = df['Class'] - 1
     
     # hard drop of outliers which lie beyond the machine limits
@@ -38,8 +38,8 @@ if tunnel == 'UT':
     df.reset_index(inplace=True, drop=True)
 
 elif tunnel == 'BBT':
-    df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
-    
+    # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
+    df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
     # df['GI'] = df['GI'] -1
     
     # hard drop of outliers which lie beyond the machine limits
@@ -307,7 +307,8 @@ def create_sections(tunnel,
                     validation_start,
                     validation_end):
 
-    # test datasets
+    # creating section for test dataset
+    dataset = dataset[dataset['Tunnel Distance [m]'] >= 1000]
     test_df1 = dataset[(dataset['Tunnel Distance [m]'] >= test_start1*1000) & 
                       (dataset['Tunnel Distance [m]'] < test_end1*1000)]
     test_df1 = test_df1[columns + target_column]      
@@ -324,13 +325,11 @@ def create_sections(tunnel,
     test_df3.reset_index(inplace=True, drop=True)
     
     
-    # training dataset
+    # creating section for training dataset by taking everthing that is left from the dataset
     if tunnel == 'Synth_BBT':
         # read synth training data
-        train_df = pd.read_excel(
-            '01_data/Synth_BBT/TBM_A_2_synthetic_advance.xlsx')
-        df_strokes = pd.read_excel(
-            '01_data/Synth_BBT/TBM_A_2_synthetic_strokes.xlsx')
+        train_df = pd.read_excel('01_data/Synth_BBT/TBM_A_2_synthetic_advance.xlsx')
+        df_strokes = pd.read_excel('01_data/Synth_BBT/TBM_A_2_synthetic_strokes.xlsx')
         # set artificial class column
         train_df['Class'] = 0
         # set class to 4 where irregular advance
@@ -340,7 +339,6 @@ def create_sections(tunnel,
         train_df = merged[train_df.columns]
         # create a copy of train_df to work with an independent DataFrame 
         train_df = train_df.copy()
-        
         train_df.rename(columns={
             'tunnellength [m]': 'Tunnel Distance [m]'}, inplace=True)
         train_df.rename(columns={
@@ -349,7 +347,7 @@ def create_sections(tunnel,
         train_df.rename(columns={
             'torque ratio [-]': 'torque ratio'}, inplace=True)
 
-        # split validation dataset from training dataset
+        # creating section for validation dataset
         val_df = train_df[(train_df['Tunnel Distance [m]'] >= validation_start*1000) & 
                          (train_df['Tunnel Distance [m]'] < validation_end*1000)]
         
@@ -360,10 +358,8 @@ def create_sections(tunnel,
         
     elif tunnel == 'Synth_BBT_UT':
         # read synth training data
-        train_df = pd.read_excel(
-            '01_data/Synth_BBT/TBM_A_2_synthetic_advance.xlsx')
-        df_strokes = pd.read_excel(
-            '01_data/Synth_BBT/TBM_A_2_synthetic_strokes.xlsx')
+        train_df = pd.read_excel('01_data/Synth_BBT/TBM_A_2_synthetic_advance.xlsx')
+        df_strokes = pd.read_excel('01_data/Synth_BBT/TBM_A_2_synthetic_strokes.xlsx')
         # set artificial class column
         train_df['Class'] = 0
         # set class to 4 where irregular advance
@@ -381,69 +377,7 @@ def create_sections(tunnel,
         train_df.rename(columns={
             'torque ratio [-]': 'torque ratio'}, inplace=True)
 
-        # split validation dataset from training dataset
-        val_df = train_df[(train_df['Tunnel Distance [m]'] >= validation_start*1000) & 
-                         (train_df['Tunnel Distance [m]'] < validation_end*1000)]
-        
-        # drop val from train df
-        train_df = train_df.drop(val_df.index)
-        train_df.reset_index(inplace=True, drop=True)
-        val_df.reset_index(inplace=True, drop=True)
-        
-    elif tunnel == 'Synth_UT_BBT':
-        # read synth training data
-        train_df = pd.read_excel(
-            '01_data/Synth_UT_BBT/TBM_C_2_synthetic_advance.xlsx')
-        df_strokes = pd.read_excel(
-            '01_data/Synth_UT_BBT/TBM_C_2_synthetic_strokes.xlsx')
-        # set artificial class column
-        train_df['Class'] = 0
-        # set class to 4 where irregular advance
-        merged = train_df.merge(df_strokes, on='Stroke number [-]')
-        merged.loc[merged['advance class mean'] == 1, 'Class'] = 4
-        
-        train_df = merged[train_df.columns]
-        # create a copy of train_df to work with an independent DataFrame 
-        train_df = train_df.copy()
-        train_df.rename(columns={
-            'tunnellength [m]': 'Tunnel Distance [m]'}, inplace=True)
-        train_df.rename(columns={
-            'rotations [rpm]': 'Speed cutterhead for display [rpm]'},
-            inplace=True)
-        train_df.rename(columns={
-            'torque ratio [-]': 'torque ratio'}, inplace=True)
-
-        # split validation dataset from training dataset
-        val_df = train_df[(train_df['Tunnel Distance [m]'] >= validation_start*1000) & 
-                         (train_df['Tunnel Distance [m]'] < validation_end*1000)]
-        
-        # drop val from train df
-        train_df = train_df.drop(val_df.index)
-        train_df.reset_index(inplace=True, drop=True)
-        val_df.reset_index(inplace=True, drop=True)
-        
-    elif tunnel == 'FB':
-        # read synth training data
-        train_df = pd.read_excel('01_data/FB/TBM_B_2_synthetic_advance.xlsx')
-        df_strokes = pd.read_excel('01_data/FB/TBM_B_2_synthetic_strokes.xlsx')
-        # set artificial class column
-        train_df['Class'] = 0
-        # set class to 4 where irregular advance
-        merged = train_df.merge(df_strokes, on='Stroke number [-]')
-        merged.loc[merged['advance class mean'] == 1, 'Class'] = 1
-        
-        train_df = merged[train_df.columns]
-        # create a copy of train_df to work with an independent DataFrame 
-        train_df = train_df.copy()
-        train_df.rename(columns={
-            'tunnellength [m]': 'Tunnel Distance [m]'}, inplace=True)
-        train_df.rename(columns={
-            'rotations [rpm]': 'Speed cutterhead for display [rpm]'},
-            inplace=True)
-        train_df.rename(columns={
-            'torque ratio [-]': 'torque ratio'}, inplace=True)
-
-        # split validation dataset from training dataset
+        # creating section for validation dataset
         val_df = train_df[(train_df['Tunnel Distance [m]'] >= validation_start*1000) & 
                          (train_df['Tunnel Distance [m]'] < validation_end*1000)]
         
@@ -453,7 +387,7 @@ def create_sections(tunnel,
         val_df.reset_index(inplace=True, drop=True)
 
     else:
-        # split validation dataset from training dataset
+        # creating section for validation dataset
         val_df = dataset[(dataset['Tunnel Distance [m]'] >= validation_start*1000) & 
                          (dataset['Tunnel Distance [m]'] < validation_end*1000)]
         val_df = val_df[columns + target_column]      
@@ -532,7 +466,6 @@ def create_sections(tunnel,
     # count and print class distribution after removing bad rock mass
     # conditions from training data
     # ========================================================================
-    
     print(f'\nafter removing classes >= {Class}\n')
     
     for i in range(6):
@@ -546,6 +479,11 @@ def create_sections(tunnel,
     # ========================================================================
     # define and apply scaler
     # ========================================================================
+    test_target_df1 = test_df1[target_column]
+    test_target_df2 = test_df2[target_column]
+    test_target_df3 = test_df3[target_column]
+    val_target_df = val_df[target_column]
+    train_target_df = train_df[target_column]
     
     scaler = MinMaxScaler(feature_range=(0,1))
     scaler = scaler.fit(train_df[columns])
@@ -576,19 +514,23 @@ def create_sections(tunnel,
                                 columns=[columns]
                                 )
 
-    return test_df1, test_df2, test_df3, val_df, train_df
+    return test_df1, test_df2, test_df3, val_df, train_df, test_target_df1, test_target_df2, test_target_df3, val_target_df, train_target_df
 
 # =============================================================================
 # Function that creates sequences for LSTM architecture
 # =============================================================================
 
-def create_sequences(dataset, seq_size):  
+def create_sequences(dataset, target_df, seq_size):  
     
     sequences = []
-    for i in range(len(dataset) - seq_size):
-        sequence = dataset[i:i+seq_size]        
-        sequences.append(sequence)
     
+    for i in range(len(dataset) - seq_size):
+        
+        sequence = dataset[i:i+seq_size]
+        label_pos = i + seq_size - 1
+        label = target_df.iloc[label_pos]
+        sequences.append((sequence, label))
+        
     return sequences
 
 # =============================================================================
@@ -604,63 +546,66 @@ class TBMDataset(Dataset):
         return len(self.sequences)
     
     def __getitem__(self, idx):
-        sequence = self.sequences[idx]
+        sequence, label = self.sequences[idx]
         sequence = torch.tensor(sequence.to_numpy())
+        if sequence.shape[1] != 8:
+            raise RuntimeError(f"Expected input size {8}, got {sequence.shape}")
+        label = torch.tensor(label)
         
-        return sequence
+        return sequence, label
 
 # =============================================================================
 # Exectute pre-processing functions
 # =============================================================================
-
-# create train/test/val datasets
-test_df1, test_df2, test_df3, val_df, train_df = create_sections(
-    tunnel,
-    df,
-    columns,
-    target_column,
-    test_start1,
-    test_end1,
-    test_start2,
-    test_end2,
-    test_start3,
-    test_end3,
-    val_start,
-    val_end
-    )   
-
-# create sequences
-test_df1 = create_sequences(test_df1, seq_size)
-test_df2 = create_sequences(test_df2, seq_size)
-test_df3 = create_sequences(test_df3, seq_size)
-val_df = create_sequences(val_df, seq_size)
-train_df = create_sequences(train_df, seq_size)
+if __name__ == "__main__":
+    # create train/test/val datasets
+    test_df1, test_df2, test_df3, val_df, train_df, test_target_df1, test_target_df2, test_target_df3, val_target_df, train_target_df = create_sections(
+        tunnel,
+        df,
+        columns,
+        target_column,
+        test_start1,
+        test_end1,
+        test_start2,
+        test_end2,
+        test_start3,
+        test_end3,
+        val_start,
+        val_end
+        )   
     
-# create torch datasets
-train_df = TBMDataset(train_df)
-test_df1 = TBMDataset(test_df1)
-test_df2 = TBMDataset(test_df2)
-test_df3 = TBMDataset(test_df3)
-val_df = TBMDataset(val_df)
+    # create sequences
+    test_df1 = create_sequences(test_df1, test_target_df1, seq_size)
+    test_df2 = create_sequences(test_df2, test_target_df2, seq_size)
+    test_df3 = create_sequences(test_df3, test_target_df3, seq_size)
+    val_df = create_sequences(val_df, val_target_df, seq_size)
+    train_df = create_sequences(train_df, train_target_df, seq_size)
     
-# define strings for filenames when saving
-test_str1 = f'{tunnel}_{Class}_test_dataset1_seq{seq_size}_{test_start1}-{test_end1}.pt'
-test_str2 = f'{tunnel}_{Class}_test_dataset2_seq{seq_size}_{test_start2}-{test_end2}.pt'
-test_str3 = f'{tunnel}_{Class}_test_dataset3_seq{seq_size}_{test_start3}-{test_end3}.pt'
-val_str = f'{tunnel}_{Class}_val_dataset_seq{seq_size}_{val_start}-{val_end}.pt'
-train_str = f'{tunnel}_{Class}_train_dataset_seq{seq_size}.pt'
-
-# save torch datasets
-torch.save(test_df1, f'01_data/{tunnel}/datasets/' + test_str1)
-torch.save(test_df2, f'01_data/{tunnel}/datasets/' + test_str2)
-torch.save(test_df3, f'01_data/{tunnel}/datasets/' + test_str3)
-torch.save(val_df, f'01_data/{tunnel}/datasets/' + val_str)
-torch.save(train_df, f'01_data/{tunnel}/datasets/' + train_str)
+    # create torch datasets
+    train_df = TBMDataset(train_df)
+    test_df1 = TBMDataset(test_df1)
+    test_df2 = TBMDataset(test_df2)
+    test_df3 = TBMDataset(test_df3)
+    val_df = TBMDataset(val_df)
     
-print(f'Trainingdataset saved as {train_str}',
-      f'\nTestdataset1 saved as {test_str1}',
-      f'\nTestdataset2 saved as {test_str2}',
-      f'\nTestdataset3 saved as {test_str3}',
-      f'\nValidationdataset saved as {val_str}',
-      '\n\n pre-processing finished')
-        
+    # define strings for filenames when saving
+    test_str1 = f'{tunnel}_{Class}_test_dataset1_seq{seq_size}_{test_start1}-{test_end1}.pt'
+    test_str2 = f'{tunnel}_{Class}_test_dataset2_seq{seq_size}_{test_start2}-{test_end2}.pt'
+    test_str3 = f'{tunnel}_{Class}_test_dataset3_seq{seq_size}_{test_start3}-{test_end3}.pt'
+    val_str = f'{tunnel}_{Class}_val_dataset_seq{seq_size}_{val_start}-{val_end}.pt'
+    train_str = f'{tunnel}_{Class}_train_dataset_seq{seq_size}.pt'
+    
+    # save torch datasets
+    torch.save(test_df1, f'01_data/{tunnel}/datasets/' + test_str1)
+    torch.save(test_df2, f'01_data/{tunnel}/datasets/' + test_str2)
+    torch.save(test_df3, f'01_data/{tunnel}/datasets/' + test_str3)
+    torch.save(val_df, f'01_data/{tunnel}/datasets/' + val_str)
+    torch.save(train_df, f'01_data/{tunnel}/datasets/' + train_str)
+    
+    print(f'Trainingdataset saved as {train_str}',
+          f'\nTestdataset1 saved as {test_str1}',
+          f'\nTestdataset2 saved as {test_str2}',
+          f'\nTestdataset3 saved as {test_str3}',
+          f'\nValidationdataset saved as {val_str}',
+          '\n\npre-processing finished')
+    

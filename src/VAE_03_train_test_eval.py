@@ -17,15 +17,20 @@ import pandas as pd
 import numpy as np
 import statsmodels.stats.stattools
 import seaborn as sns
+import torch.optim as optim
+import torch.nn as nn
+from tqdm import tqdm
+import matplotlib as mpl
 
 from VAE_05_model import VAE
+from VAE_02_preprocessor_for_VAE import TBMDataset
 
 # =============================================================================
 # Hyperparameters
 # =============================================================================
-tunnel = 'Synth_BBT_UT' #'Synth_BBT' #'UT'
+tunnel = 'BBT' #'Synth_BBT' #'UT'
 
-if tunnel == 'Synth_BBT' or 'Synth_BBT_UT':    
+if tunnel == 'Synth_BBT' or tunnel == 'Synth_BBT_UT':
     input_size = 5  # Size of input features
 else:
     input_size = 8
@@ -43,7 +48,7 @@ beta = 0.001
 # Load datasets and create DataLoader
 # =============================================================================
 if tunnel == 'UT':
-    class = 4
+    CLASS = 4
     start_val = 3.5
     end_val = 4.5
     start_test_1 = 2.4
@@ -54,7 +59,7 @@ if tunnel == 'UT':
     end_test_3 = 6.2
     
 elif tunnel == 'Synth_BBT_UT':
-    class = 4
+    CLASS = 4
     start_val = 0
     end_val = 0.25
     start_test_1 = 2.4
@@ -65,7 +70,7 @@ elif tunnel == 'Synth_BBT_UT':
     end_test_3 = 6.2
     
 elif tunnel == 'Synth_BBT':
-    class = 3
+    CLASS = 3
     start_val = 0
     end_val = 0.25
     start_test_1 = 3.5
@@ -76,7 +81,7 @@ elif tunnel == 'Synth_BBT':
     end_test_3 = 10.5
     
 elif tunnel == 'BBT':
-    class = 3
+    CLASS = 3
     start_val = 10.5
     end_val = 11.5
     start_test_1 = 3.5
@@ -89,11 +94,11 @@ elif tunnel == 'BBT':
 else:
     print('tunnel not defined')
     
-file_name = f'{tunnel}_class{class}_seq{sequence_length}_beta{beta}_ep{num_epochs}_hse{hidden_size_encoder}_hsd{hidden_size_decoder}_ls{latent_size}'
+file_name = f'{tunnel}_CLASS{CLASS}_seq{sequence_length}_beta{beta}_ep{num_epochs}_hse{hidden_size_encoder}_hsd{hidden_size_decoder}_ls{latent_size}'
 
 # train dataset
 train_dataset = torch.load(
-    f'01_data/{tunnel}/datasets/{tunnel}_{class}_train_dataset_seq{sequence_length}.pt'
+    f'01_data/{tunnel}/datasets/{tunnel}_{CLASS}_train_dataset_seq{sequence_length}.pt'
     )
 
 train_dataloader = DataLoader(
@@ -104,7 +109,7 @@ train_dataloader = DataLoader(
 
 # test 1-3 datasets
 test_dataset1 = torch.load(
-    f'01_data/{tunnel}/datasets/{tunnel}_{class}_test_dataset1_seq{sequence_length}_{start_test_1}-{end_test_1}.pt')
+    f'01_data/{tunnel}/datasets/{tunnel}_{CLASS}_test_dataset1_seq{sequence_length}_{start_test_1}-{end_test_1}.pt')
 
 test_dataloader1 = DataLoader(
     test_dataset1,
@@ -113,7 +118,7 @@ test_dataloader1 = DataLoader(
     )
 
 test_dataset2 = torch.load(
-    f'01_data/{tunnel}/datasets/{tunnel}_{class}_test_dataset2_seq{sequence_length}_{start_test_2}-{end_test_2}.pt')
+    f'01_data/{tunnel}/datasets/{tunnel}_{CLASS}_test_dataset2_seq{sequence_length}_{start_test_2}-{end_test_2}.pt')
 
 test_dataloader2 = DataLoader(
     test_dataset2,
@@ -122,7 +127,7 @@ test_dataloader2 = DataLoader(
     )
 
 test_dataset3 = torch.load(
-    f'01_data/{tunnel}/datasets/{tunnel}_{class}_test_dataset3_seq{sequence_length}_{start_test_3}-{end_test_3}.pt')
+    f'01_data/{tunnel}/datasets/{tunnel}_{CLASS}_test_dataset3_seq{sequence_length}_{start_test_3}-{end_test_3}.pt')
 
 test_dataloader3 = DataLoader(
     test_dataset3,
@@ -131,7 +136,7 @@ test_dataloader3 = DataLoader(
 
 # validation dataset
 val_dataset = torch.load(
-    f'01_data/{tunnel}/datasets/{tunnel}_{class}_val_dataset_seq{sequence_length}_{start_val}-{end_val}.pt'
+    f'01_data/{tunnel}/datasets/{tunnel}_{CLASS}_val_dataset_seq{sequence_length}_{start_val}-{end_val}.pt'
     )
 
 val_dataloader = DataLoader(
@@ -316,8 +321,8 @@ model, history = train_vae(vae,
                            )
 
 # # load best model after training model
-# model = torch.load(f'02_Results/Synth_BBT/01_Models/{file_name}' + '.pth')
-# history = torch.load(f'02_Results/Synth_BBT/01_Models/history of {file_name}.pt')
+# model = torch.load(f'02_Results/UT/01_Models/{file_name}' + '.pth')
+# history = torch.load(f'02_Results/UT/01_Models/history of {file_name}.pt')
 
 # =============================================================================
 # test the model
@@ -593,7 +598,7 @@ def plot_reconstruction_error(error_list,
               loc='upper left')
 
     plt.tight_layout()
-    plt.savefig(fr'02_Results\{tunnel}\02_Plots\02_errors_vs_classes\{title}_{file_name}.png')
+    plt.savefig(fr'02_Results\{tunnel}\02_Plots\02_errors_vs_CLASSes\{title}_{file_name}.png')
 
     return df
 
