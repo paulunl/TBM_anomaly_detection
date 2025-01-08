@@ -28,7 +28,7 @@ from VAE_02_preprocessor_for_VAE import TBMDataset
 # =============================================================================
 # Hyperparameters
 # =============================================================================
-tunnel = 'BBT' #'Synth_BBT' #'UT'
+tunnel = 'UT' #'Synth_BBT' #'UT'
 
 if tunnel == 'Synth_BBT' or tunnel == 'Synth_BBT_UT':
     input_size = 5  # Size of input features
@@ -158,8 +158,8 @@ vae = VAE(input_size,
           )
 
 # # load model
-# model = torch.load('withoutGI4_seq100_beta0.001_ep50.pth')
-# history = torch.load('history of withoutGI4_seq100_beta0.001_ep50.pth.pt')
+# model = torch.load(f'02_Results_new/UT/01_Models/{file_name}' + '.pth')
+# history = torch.load(f'02_Results/UT/01_Models/history of {file_name}.pt')
 
 
 # =============================================================================
@@ -424,7 +424,7 @@ def threshold(error_test, title):
         x_max = skewed_boundary_up + 0.005
         
     elif skewed_boundary_up < 0.5:
-        x_max = skewed_boundary_up + 0.5
+        x_max = skewed_boundary_up + 0.005
         
     else:
         x_max = error_test.max()
@@ -438,11 +438,12 @@ def threshold(error_test, title):
     
     plt.subplots_adjust(top=0.95)
     plt.suptitle(f'{title}', fontsize = 16)
-    
+    plt.axvline(boundary_up, c='black', ls='--', label='upper boxplot boundary')
+    plt.axvline(skewed_boundary_up, c='red', ls='--', label='skewness adjusted \nupper boxplot boundary')
     ax_box.set(yticks=[])
     sns.despine(ax=ax_hist)
     sns.despine(ax=ax_box, left=True)
-    plt.savefig(fr'02_Results\{tunnel}\02_Plots\03_threshold\{title}_{file_name}.png')
+    plt.savefig(fr'02_Results_new\{tunnel}\02_Plots\03_threshold\{title}_{file_name}.png')
 
     
     return skewed_boundary_up
