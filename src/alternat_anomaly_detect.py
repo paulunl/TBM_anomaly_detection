@@ -23,14 +23,14 @@ from statsmodels.tsa.statespace.sarimax import SARIMAX
 register_matplotlib_converters()
 from time import time
 import seaborn as sns
-sns.set(style="whitegrid")
+# sns.set(style="whitegrid")
 
 # =============================================================================
 # load data
 # =============================================================================
 
-tunnel = 'FB' # 'BBT' # 'Synth_BBT_UT'
-Class = 2
+tunnel = 'UT' # 'BBT' # 'Synth_BBT_UT'
+Class = 3
 
 if tunnel == 'UT':
     df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
@@ -345,7 +345,7 @@ df1 = isolation_forest(df1)
 df2 = isolation_forest(df2)
 df3 = isolation_forest(df3)
 
-def visualize(df, test_start, test_end):
+def visualize(df, test_start, test_end, file_name):
     # visualization
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10,6))
     
@@ -361,17 +361,17 @@ def visualize(df, test_start, test_end):
     ax1.plot(df['Tunnel Distance [m]'], df['Total advance force [kN]'].rolling(35).mean(),
              color='black', label='Normal')
     ax1.plot(df['Tunnel Distance [m]'], df['Total advance force [kN]'], color='black',
-             alpha=0.35)
+             alpha=0.5)
     ax1.scatter(a['Tunnel Distance [m]'], a['Total advance force [kN]'], color='red',
                 label='Anomaly')
     ax1.set_ylabel('Total advance force [kN]')
     ax1.set_xlim(test_start*1000, test_end*1000)
-    ax1.legend(loc='lower left')
+    ax1.legend(loc='best')
     
     ax2.plot(df['Tunnel Distance [m]'], df['spec. penetration [mm/rot/MN]'].rolling(35).mean(),
              color='black')
     ax2.plot(df['Tunnel Distance [m]'], df['spec. penetration [mm/rot/MN]'],
-             color='black', alpha=0.35)
+             color='black', alpha=0.5)
     ax2.scatter(a['Tunnel Distance [m]'], a['spec. penetration [mm/rot/MN]'],
                 color='red')
     ax2.set_ylabel('spec. penetration [mm/rot/MN]')
@@ -380,7 +380,7 @@ def visualize(df, test_start, test_end):
     ax3.plot(df['Tunnel Distance [m]'], df['torque ratio'].rolling(35).mean(),
              color='black')
     ax3.plot(df['Tunnel Distance [m]'], df['torque ratio'], color='black',
-             alpha=0.35)
+             alpha=0.5)
     ax3.scatter(a['Tunnel Distance [m]'], a['torque ratio'], color='red')
     ax3.set_ylabel('toque ratio')
     ax3.set_xlabel('Tunnel Distance [m]')
@@ -485,10 +485,11 @@ def visualize(df, test_start, test_end):
     cbar.ax.set_ylim(df['Class'].min(), int(df['Class'].max()+1))
     
     fig.tight_layout()
-    
-visualize(df1, test_start1, test_end1)
-visualize(df2, test_start2, test_end2)
-visualize(df3, test_start3, test_end3)
+    plt.savefig(fr'02_Results\{tunnel}\02_Plots\04_isolation_forest\{file_name}_{tunnel}.png', dpi=300)
+
+visualize(df1, test_start1, test_end1, 'test_set1')
+visualize(df2, test_start2, test_end2, 'test_set2')
+visualize(df3, test_start3, test_end3, 'test_set3')
 
 
 

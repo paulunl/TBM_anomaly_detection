@@ -22,12 +22,12 @@ from sklearn.preprocessing import MinMaxScaler
 # load the dataset
 # =============================================================================
 
-tunnel = 'UT' # 'BBT' # 'Synth_BBT_UT'
+tunnel = 'BBT' # 'BBT' # 'Synth_BBT_UT'
 Class = 4
 
 if tunnel == 'UT':
-    df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
-    # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+    # df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+    df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
     df['Class'] = df['Class'] - 1
     
     # hard drop of outliers which lie beyond the machine limits
@@ -38,8 +38,8 @@ if tunnel == 'UT':
     df.reset_index(inplace=True, drop=True)
 
 elif tunnel == 'BBT':
-    # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
-    df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
+    df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
+    # df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
     # df['GI'] = df['GI'] -1
     
     # hard drop of outliers which lie beyond the machine limits
@@ -55,7 +55,7 @@ elif tunnel == 'BBT':
             inplace=True)
     df.reset_index(inplace=True, drop=True)
     
-if tunnel == 'FB':
+elif tunnel == 'FB':
     df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
         
     # hard drop of outliers which lie beyond the machine limits

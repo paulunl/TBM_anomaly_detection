@@ -11,7 +11,7 @@ detection
 '''
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -21,14 +21,36 @@ import torch.optim as optim
 import torch.nn as nn
 from tqdm import tqdm
 import matplotlib as mpl
+from matplotlib.ticker import FuncFormatter
 
 from VAE_05_model import VAE
 from VAE_02_preprocessor_for_VAE import TBMDataset
 
+# # =============================================================================
+# # Function that creates torch datasets
+# # =============================================================================
+
+# class TBMDataset(Dataset):
+    
+#     def __init__(self, sequences):
+#         self.sequences = sequences
+
+#     def __len__(self):
+#         return len(self.sequences)
+    
+#     def __getitem__(self, idx):
+#         sequence, label = self.sequences[idx]
+#         sequence = torch.tensor(sequence.to_numpy())
+#         # if sequence.shape[1] != 8 or sequence.shape[1] != 5:
+#         #     raise RuntimeError(f"Expected input size 8 or 5, got {sequence.shape}")
+#         label = torch.tensor(label)
+        
+#         return sequence, label
+
 # =============================================================================
 # Hyperparameters
 # =============================================================================
-tunnel = 'UT' #'Synth_BBT' #'UT'
+tunnel = 'BBT' #'Synth_BBT' #'UT'
 
 if tunnel == 'Synth_BBT' or tunnel == 'Synth_BBT_UT':
     input_size = 5  # Size of input features
@@ -158,8 +180,8 @@ vae = VAE(input_size,
           )
 
 # # load model
-# model = torch.load(f'02_Results_new/UT/01_Models/{file_name}' + '.pth')
-# history = torch.load(f'02_Results/UT/01_Models/history of {file_name}.pt')
+# model = torch.load(f'02_Results/{tunnel}/01_Models/{file_name}' + '.pth')
+# history = torch.load(f'02_Results/{tunnel}/01_Models/history of {file_name}.pt')
 
 
 # =============================================================================
@@ -374,7 +396,7 @@ error_test_sum = error_test1 + error_test2 + error_test3
 # set threshold for every test section and plot histogram
 def threshold(error_test, title):
     error_test = np.array(error_test)
-    print(error_test.max())
+    print('highest error value', error_test.max())
     
     quantile = np.quantile(error_test, 0.99)
     print('99% quantil:', quantile)
@@ -383,31 +405,43 @@ def threshold(error_test, title):
     q3 = np.percentile(error_test, 75)
     iqr = q3 - q1
 
-    boundary_low = q1 - 1.5 * iqr
-    boundary_up = q3 + 1.5 * iqr
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
 
-    print('boundary up:', boundary_up)
-
-    mc = statsmodels.stats.stattools.medcouple(error_test, axis=0)
-
-    skewed_boundary_low = q1 - 1.5*np.exp(-4*mc)*iqr
-    skewed_boundary_up = q3 + 1.5*np.exp(3*mc)*iqr
-
-    print('low:', 1.5*np.exp(3*mc))
-
-    print('skewed boundary up:', skewed_boundary_up)
-    print('skewed boundary low:', skewed_boundary_low)
+    print('upper boundary:', upper_bound)
     
+    # calculate the medcouple
+    mc = statsmodels.stats.stattools.medcouple(error_test, axis=0)
+    print('medcouple:', mc)
+    
+    # negative medcouple signifies a negative skewed distribution  resulting in
+    # different upper and lower bounds
+    if mc < 0:
+        adjusted_lower_bound = q1 - 1.5*np.exp(-3*mc)*iqr
+        adjusted_upper_bound = q3 + 1.5*np.exp(4*mc)*iqr
+    else:
+        adjusted_lower_bound = q1 - 1.5*np.exp(-4*mc)*iqr
+        adjusted_upper_bound = q3 + 1.5*np.exp(3*mc)*iqr
+    
+    print('skewness adjusted lower boundary:', adjusted_lower_bound)
+    print('skewness adjusted upper boundary:', adjusted_upper_bound)
+        
     # plot error
     sns.set(style="ticks")
 
     f, (ax_box, ax_hist) = plt.subplots(2, sharex=True, figsize=(15, 10),
                                         gridspec_kw={"height_ratios": (.15, .85)})
+    
+    # set right boxplot whisker for plotting
+    if mc < 0:
+        whis = q3 + 1.5*np.exp(4*mc)
+    else:
+        whis = q3 + 1.5*np.exp(3*mc)
 
     sns.boxplot(error_test,
                 ax=ax_box,
                 orient='h',
-                whis=(q3 + 1.5*np.exp(3*mc)),
+                whis=whis,
                 color='lightgrey',
                 linewidth=3)
     
@@ -421,10 +455,10 @@ def threshold(error_test, title):
     #     x_max = error_test.max()
 
     if error_test.max() > 0.1:
-        x_max = skewed_boundary_up + 0.005
+        x_max = adjusted_upper_bound + 0.1
         
-    elif skewed_boundary_up < 0.5:
-        x_max = skewed_boundary_up + 0.005
+    elif adjusted_upper_bound < 0.5:
+        x_max = adjusted_upper_bound + 0.005
         
     else:
         x_max = error_test.max()
@@ -438,20 +472,21 @@ def threshold(error_test, title):
     
     plt.subplots_adjust(top=0.95)
     plt.suptitle(f'{title}', fontsize = 16)
-    plt.axvline(boundary_up, c='black', ls='--', label='upper boxplot boundary')
-    plt.axvline(skewed_boundary_up, c='red', ls='--', label='skewness adjusted \nupper boxplot boundary')
+    plt.axvline(upper_bound, c='black', ls='--', label='upper boxplot boundary')
+    plt.axvline(adjusted_upper_bound, c='red', ls='--', label='skewness adjusted \nupper boxplot boundary')
     ax_box.set(yticks=[])
     sns.despine(ax=ax_hist)
     sns.despine(ax=ax_box, left=True)
-    plt.savefig(fr'02_Results_new\{tunnel}\02_Plots\03_threshold\{title}_{file_name}.png')
+    ax_hist.legend(loc='upper right', facecolor='white',
+                   edgecolor='black', framealpha=1, prop={'size': 16})
+    plt.savefig(fr'02_Results\{tunnel}\02_Plots\03_threshold\{title}_{file_name}.png', dpi=300)
 
-    
-    return skewed_boundary_up
+    return adjusted_upper_bound, upper_bound
 
-threshold_test1 = threshold(error_test1, 'test_set_1')
-threshold_test2 = threshold(error_test2, 'test_set_2')
-threshold_test3 = threshold(error_test3, 'test_set_3')
-threshold_all = threshold(error_test_sum, 'all_test_sets')
+adjusted_threshold_test1, threshold_test1 = threshold(error_test1, 'test_set_1')
+adjusted_threshold_test2, threshold_test2 = threshold(error_test2, 'test_set_2')
+adjusted_threshold_test3, threshold_test3 = threshold(error_test3, 'test_set_3')
+adjusted_threshold_all, threshold_all = threshold(error_test_sum, 'all_test_sets')
 
 # =============================================================================
 # plot reconstruction errors
@@ -462,7 +497,8 @@ def plot_reconstruction_error(error_list,
                               start_km,
                               title,
                               file_name,
-                              threshold=1000,
+                              threshold,
+                              adjusted_threshold
                               ):
     
 
@@ -476,14 +512,18 @@ def plot_reconstruction_error(error_list,
             
     # create list of thresholds in length of amount of errors
     threshold_for_plot = []
+    adjusted_threshold_for_plot = []
     for i in range(len(error_list)):
         threshold_for_plot.append(threshold)
-        
+        adjusted_threshold_for_plot.append(adjusted_threshold)
+    
     # create dataframe with the lists of the three needed values    
     df = pd.DataFrame(list(zip(
                     error_list,
                     threshold_for_plot,
-                    label_list)), columns = ['Error', 'Threshold', 'Label'])
+                    adjusted_threshold_for_plot,
+                    label_list)), columns = ['Error', 'Threshold',
+                                             'adjusted Threshold', 'Label'])
     
     # arrange list for Tunnel Distance at x axis
     df['Tunnel Distance [km]'] = np.arange(start_km, (start_km*1000 + 0.05*(len(error_list)-0.9))/1000, 0.05/1000) # -0.9 only because the length somehow doesnt match without it
@@ -496,23 +536,30 @@ def plot_reconstruction_error(error_list,
     df = df.reset_index()
     
     # plotting reconstruction errors
-    fig, ax = plt.subplots(1,1, figsize=(15,10))
+    fig, ax = plt.subplots(1,1, figsize=(10,6))
     
     ax.scatter(df['Tunnel Distance [km]'], df['Error'], s=2, c='black')
     plt.xlim(start_km + 0.05*int(sequence_length/2)/1000,
              start_km + 0.05*len(error_list)/1000)
-    plt.ylim(0, df['Error'].max())
+    plt.ylim(0, df['Error'].max()+0.012)
     
-    # plotting threshhold if one is given to the function
-    if threshold != 1000 : ax.plot(df['Threshold'], color="black",
-                                           linewidth=2, linestyle='--') 
+    # plotting threshhold and skewness adjusted threshold
+    ax.plot(df['Threshold'], color="black", linewidth=2, linestyle='--') 
+    ax.plot(df['adjusted Threshold'], color='red', linewidth=2, linestyle='--')
 
     plt.ylabel('Reconstruction Error', fontsize='16')
-    plt.xlabel('Tunnel Distance [km]', fontsize='16')
+    plt.xlabel('Tunnel Distance [m]', fontsize='16')
     plt.title(f'{title}', fontsize='16')
+    # custom tick labels
     ax.xaxis.set_ticks(np.arange(
         start_km, (start_km*1000 + 0.05*(len(error_list)-0.9))/1000, 0.1))
-    plt.xticks(rotation=90, fontsize='16')
+    # Create a formatter function for tick labels in [m]
+    def multiply_by_1000(x, pos):
+        return f'{x * 1000:.0f}'
+    # Set custom formatter for x-axis ticks
+    formatter = FuncFormatter(multiply_by_1000)
+    plt.gca().xaxis.set_major_formatter(formatter)
+    plt.xticks(fontsize='16')
     plt.yticks(fontsize='16')
         
     n_clusters = df['Label'].max() - df['Label'].min() + 1
@@ -594,12 +641,13 @@ def plot_reconstruction_error(error_list,
     
     cbar.ax.set_ylim(df['Label'].min(), int(df['Label'].max()+1))
     
-    ax.legend(['Reconstruction Error', 'Threshold'],
-              fontsize='12',
-              loc='upper left')
+    ax.legend(['Reconstruction Error', 'Threshold',
+               'Threshold adjusted'],
+              fontsize='16',
+              loc='best')
 
     plt.tight_layout()
-    plt.savefig(fr'02_Results\{tunnel}\02_Plots\02_errors_vs_CLASSes\{title}_{file_name}.png')
+    plt.savefig(fr'02_Results\{tunnel}\02_Plots\02_errors_vs_CLASSes\{title}_{file_name}.png', dpi=300)
 
     return df
 
@@ -609,7 +657,8 @@ df_Error_test_1 = plot_reconstruction_error(error_test1,
                                             start_test_1,
                                             'Test Dataset 1',
                                             file_name,
-                                            threshold=threshold_all
+                                            threshold_all,
+                                            adjusted_threshold_all
                                             )
 
 df_Error_test_2 = plot_reconstruction_error(error_test2,
@@ -618,7 +667,8 @@ df_Error_test_2 = plot_reconstruction_error(error_test2,
                                             start_test_2,
                                             'Test Dataset 2',
                                             file_name,
-                                            threshold=threshold_all
+                                            threshold_all,
+                                            adjusted_threshold_all
                                             )
 
 df_Error_test_3 = plot_reconstruction_error(error_test3,
@@ -627,5 +677,7 @@ df_Error_test_3 = plot_reconstruction_error(error_test3,
                                             start_test_3,
                                             'Test Dataset 3',
                                             file_name,
-                                            threshold=threshold_all
+                                            threshold_all,
+                                            adjusted_threshold_all
                                             )
+
