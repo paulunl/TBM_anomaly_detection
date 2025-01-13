@@ -50,10 +50,12 @@ from VAE_02_preprocessor_for_VAE import TBMDataset
 # =============================================================================
 # Hyperparameters
 # =============================================================================
-tunnel = 'BBT' #'Synth_BBT' #'UT'
+tunnel = 'FB' #'Synth_BBT' #'UT'
 
 if tunnel == 'Synth_BBT' or tunnel == 'Synth_BBT_UT':
     input_size = 5  # Size of input features
+elif tunnel == 'FB':
+    input_size = 7
 else:
     input_size = 8
 
@@ -113,6 +115,17 @@ elif tunnel == 'BBT':
     start_test_3 = 9.5
     end_test_3 = 10.5
 
+elif tunnel == 'FB':
+    CLASS = 1
+    start_val = 1
+    end_val = 1.25
+    start_test_1 = 3.5
+    end_test_1 = 4.5
+    start_test_2 = 5.5
+    end_test_2 = 6.5
+    start_test_3 = 7.5
+    end_test_3 = 8.5
+        
 else:
     print('tunnel not defined')
     
@@ -487,6 +500,8 @@ adjusted_threshold_test1, threshold_test1 = threshold(error_test1, 'test_set_1')
 adjusted_threshold_test2, threshold_test2 = threshold(error_test2, 'test_set_2')
 adjusted_threshold_test3, threshold_test3 = threshold(error_test3, 'test_set_3')
 adjusted_threshold_all, threshold_all = threshold(error_test_sum, 'all_test_sets')
+# adjusted_threshold_all = (adjusted_threshold_test1 + adjusted_threshold_test2 + adjusted_threshold_test3)/3
+# threshold_all = (threshold_test1 + threshold_test2 + threshold_test3)/3
 
 # =============================================================================
 # plot reconstruction errors
@@ -538,14 +553,17 @@ def plot_reconstruction_error(error_list,
     # plotting reconstruction errors
     fig, ax = plt.subplots(1,1, figsize=(10,6))
     
-    ax.scatter(df['Tunnel Distance [km]'], df['Error'], s=2, c='black')
+    ax.scatter(df['Tunnel Distance [km]'], df['Error'], s=2, c='black',
+               label='Reconstruction Error')
     plt.xlim(start_km + 0.05*int(sequence_length/2)/1000,
              start_km + 0.05*len(error_list)/1000)
     plt.ylim(0, df['Error'].max()+0.012)
     
     # plotting threshhold and skewness adjusted threshold
-    ax.plot(df['Threshold'], color="black", linewidth=2, linestyle='--') 
-    ax.plot(df['adjusted Threshold'], color='red', linewidth=2, linestyle='--')
+    ax.plot(df['Threshold'], color="black", linewidth=2, linestyle='--', 
+            label='Threshold') 
+    ax.plot(df['adjusted Threshold'], color='red', linewidth=2, linestyle='--',
+            label='Threshold adjusted')
 
     plt.ylabel('Reconstruction Error', fontsize='16')
     plt.xlabel('Tunnel Distance [m]', fontsize='16')
@@ -563,7 +581,6 @@ def plot_reconstruction_error(error_list,
     plt.yticks(fontsize='16')
         
     n_clusters = df['Label'].max() - df['Label'].min() + 1
-    
     # cmap = plt.get_cmap('RdYlGn_r', n_clusters) # autumn_r
     if n_clusters == 6:
         cmap = (mpl.colors.ListedColormap(['green',
@@ -588,13 +605,18 @@ def plot_reconstruction_error(error_list,
                                        'orange',
                                        'red'])
                 .with_extremes(over='red', under='green'))
-            
-    elif n_clusters == 4 and df['Label'].min() == 0:
-        cmap = (mpl.colors.ListedColormap(['green',
-                                       'greenyellow',
+    elif n_clusters == 4 and tunnel == 'BBT':
+        cmap = (mpl.colors.ListedColormap([
+                                       'green',
                                        'gold',
-                                       'orange'])
-                .with_extremes(over='red', under='green'))
+                                       'orange',
+                                       'red']))    
+    # elif n_clusters == 4 and df['Label'].min() == 0:
+    #     cmap = (mpl.colors.ListedColormap(['green',
+    #                                    'greenyellow',
+    #                                    'gold',
+    #                                    'orange'])
+    #             .with_extremes(over='red', under='green'))
     
     elif n_clusters == 4 and df['Label'].min() == 1:
         cmap = (mpl.colors.ListedColormap([
@@ -609,12 +631,13 @@ def plot_reconstruction_error(error_list,
                                        'gold',
                                        'red'])
                 .with_extremes(over='red', under='green'))
-        
+    elif n_clusters == 2 and tunnel == 'FB':
+        cmap = (mpl.colors.ListedColormap(['green',
+                                       'red']))
     elif n_clusters == 2:
         cmap = (mpl.colors.ListedColormap(['green',
-                                       'gold'])
-                .with_extremes(over='red', under='green'))
-        
+                                       'gold']))
+
     else:
         print('colour map not suited for the data to be plotted')
 
@@ -641,10 +664,7 @@ def plot_reconstruction_error(error_list,
     
     cbar.ax.set_ylim(df['Label'].min(), int(df['Label'].max()+1))
     
-    ax.legend(['Reconstruction Error', 'Threshold',
-               'Threshold adjusted'],
-              fontsize='16',
-              loc='best')
+    ax.legend(fontsize='16', loc='best')
 
     plt.tight_layout()
     plt.savefig(fr'02_Results\{tunnel}\02_Plots\02_errors_vs_CLASSes\{title}_{file_name}.png', dpi=300)

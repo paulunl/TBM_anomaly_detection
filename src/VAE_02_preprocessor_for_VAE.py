@@ -22,12 +22,12 @@ from sklearn.preprocessing import MinMaxScaler
 # load the dataset
 # =============================================================================
 
-tunnel = 'BBT' # 'BBT' # 'Synth_BBT_UT'
-Class = 4
+tunnel = 'FB' # 'BBT' # 'Synth_BBT_UT'
+Class = 1
 
 if tunnel == 'UT':
-    # df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
-    df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+    df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+    # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
     df['Class'] = df['Class'] - 1
     
     # hard drop of outliers which lie beyond the machine limits
@@ -38,8 +38,8 @@ if tunnel == 'UT':
     df.reset_index(inplace=True, drop=True)
 
 elif tunnel == 'BBT':
-    df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
-    # df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
+    # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
+    df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
     # df['GI'] = df['GI'] -1
     
     # hard drop of outliers which lie beyond the machine limits
@@ -56,8 +56,9 @@ elif tunnel == 'BBT':
     df.reset_index(inplace=True, drop=True)
     
 elif tunnel == 'FB':
-    df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
-        
+    # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
+    df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
+    
     # hard drop of outliers which lie beyond the machine limits
     # df.drop(df[df['Torque cutterhead [MNm]'] > 10.2].index, inplace=True)
     # df.drop(df[df['Total advance force [kN]'] > 27000].index, inplace=True)
@@ -77,6 +78,8 @@ elif tunnel == 'FB':
               inplace=True)
     df.rename(columns={'Thrust Force [kN]': 'Total advance force [kN]'},
               inplace=True)
+    df.rename(columns={'Speed [mm/min]': 'Advance speed [mm/min]'},
+          inplace=True)
     
     df.reset_index(inplace=True, drop=True)
     
@@ -222,17 +225,19 @@ elif tunnel == 'UT':
     
 elif tunnel == 'FB':
     
-    columns = ['Penetration [mm/rot]',
+    columns = ['Advance speed [mm/min]',
+               'Penetration [mm/rot]',
                'Speed cutterhead for display [rpm]',
                'Torque cutterhead [MNm]',
                'Total advance force [kN]',
+               'spec. penetration [mm/rot/MN]', 
                'torque ratio', 
                ]
     
     target_column = ['Class']
     
-    val_start = 0
-    val_end = 0.25
+    val_start = 1
+    val_end = 1.25
     test_start1 = 3.5
     test_end1 = 4.5
     test_start2 = 5.5
@@ -435,33 +440,67 @@ def create_sections(tunnel,
     # neighbouring the removed ones
     # ========================================================================
     
-    for df in [val_df, train_df]:
+    # for df in [val_df, train_df]:
     
-        for col in columns:
+    #     for col in columns:
             
+    #         # Find indices where rock mass condition >= Class
+    #         indices = df.index[df['Class'] >= Class].tolist()
+            
+    #         # Loop through each index and perform linear interpolation
+    #         # 5 indices before and after removed one
+            
+    #         for idx in indices:
+    #             before_idx = idx - 5
+    #             after_idx = idx + 5
+        
+    #             while df.at[before_idx, 'Class'] >= Class:
+    #                 before_idx -= 5
+        
+    #             while df.at[after_idx, 'Class'] >= Class:
+    #                 after_idx += 5
+        
+    #             # Linear interpolation overwrites Class => set Class value
+    #             df.at[idx, col] = np.interp(idx,
+    #                                         [before_idx, after_idx],
+    #                                         [df.at[before_idx, col],
+    #                                          df.at[after_idx, col]])
+    #             df.at[idx, 'Class'] = 99
+                
+    for df in [val_df, train_df]:
+        for col in columns:
             # Find indices where rock mass condition >= Class
             indices = df.index[df['Class'] >= Class].tolist()
-            
-            # Loop through each index and perform linear interpolation
-            # 5 indices before and after removed one
             
             for idx in indices:
                 before_idx = idx - 5
                 after_idx = idx + 5
-        
-                while df.at[before_idx, 'Class'] >= Class:
+    
+                # Ensure indices stay within bounds
+                while before_idx in df.index and df.at[before_idx, 'Class'] >= Class:
                     before_idx -= 5
-        
-                while df.at[after_idx, 'Class'] >= Class:
+                    if before_idx < df.index.min():
+                        before_idx = df.index.min()
+                        break
+                
+                while after_idx in df.index and df.at[after_idx, 'Class'] >= Class:
                     after_idx += 5
-        
-                # Linear interpolation overwrites Class => set Class value
-                df.at[idx, col] = np.interp(idx,
-                                            [before_idx, after_idx],
-                                            [df.at[before_idx, col],
-                                             df.at[after_idx, col]])
+                    if after_idx > df.index.max():
+                        after_idx = df.index.max()
+                        break
+                
+                # Ensure before_idx and after_idx are valid
+                if before_idx not in df.index or after_idx not in df.index:
+                    print(f"Skipping index {idx}: invalid before_idx ({before_idx}) or after_idx ({after_idx})")
+                    continue
+                
+                # Perform linear interpolation and set Class value
+                df.at[idx, col] = np.interp(
+                    idx,
+                    [before_idx, after_idx],
+                    [df.at[before_idx, col], df.at[after_idx, col]]
+                )
                 df.at[idx, 'Class'] = 99
-
     # ========================================================================
     # count and print class distribution after removing bad rock mass
     # conditions from training data
@@ -548,8 +587,8 @@ class TBMDataset(Dataset):
     def __getitem__(self, idx):
         sequence, label = self.sequences[idx]
         sequence = torch.tensor(sequence.to_numpy())
-        if sequence.shape[1] != 8:
-            raise RuntimeError(f"Expected input size {8}, got {sequence.shape}")
+        # if sequence.shape[1] != 8:
+        #     raise RuntimeError(f"Expected input size {8}, got {sequence.shape}")
         label = torch.tensor(label)
         
         return sequence, label
