@@ -16,164 +16,65 @@ import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
 
-
 # =============================================================================
 # load data
 # =============================================================================
-
-tunnel = 'UT' # 'BBT' # 'Synth_BBT_UT'
-Class = 4 #3 BBT
-
-if tunnel == 'UT':
-    df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
-    # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
-    df['Class'] = df['Class'] - 1
-    
-    # hard drop of outliers which lie beyond the machine limits
-    df.drop(df[df['Torque cutterhead [MNm]'] > 10.2].index, inplace=True)
-    df.drop(df[df['Total advance force [kN]'] > 27000].index, inplace=True)
-    df.drop(df[df['Total advance force [kN]'] < 4000].index, inplace=True)
-    df.drop(df[df['Penetration [mm/rot]'] < 0.1].index, inplace=True)
-    df.reset_index(inplace=True, drop=True)
-
-elif tunnel == 'BBT':
-    # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
-    df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
-    # df['GI'] = df['GI'] -1
-    
-    # hard drop of outliers which lie beyond the machine limits
-    df.drop(df[df['Torque cutterhead [MNm]'] > 4.5].index, inplace=True)
-    df.drop(df[df['Total advance force [kN]'] < 2000].index, inplace=True)
-    df.drop(df[df['Total advance force [kN]'] > 17500].index, inplace=True)
-    df.drop(df[df['Penetration [mm/rot]'] < 0.1].index, inplace=True)
-    df = df[df['Tunnel Distance [m]'] > 1*1000] # first km not representative
-    
-    # rename columns for consistency through different datasets
-    df.rename(columns={'GI': 'Class'}, inplace=True)
-    df.rename(columns={'Speed cutterhead [rpm]': 'Speed cutterhead for display [rpm]'},
-            inplace=True)
-    df.reset_index(inplace=True, drop=True)
-    
-if tunnel == 'FB':
-    df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
+def load_data(tunnel, Class):    
+    if tunnel == 'UT':
+        df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+        # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+        df['Class'] = df['Class'] - 1
         
-    # hard drop of outliers which lie beyond the machine limits
-    # df.drop(df[df['Torque cutterhead [MNm]'] > 10.2].index, inplace=True)
-    # df.drop(df[df['Total advance force [kN]'] > 27000].index, inplace=True)
-    # df.drop(df[df['Total advance force [kN]'] < 4000].index, inplace=True)
-    # df.drop(df[df['Penetration [mm/rot]'] < 0.1].index, inplace=True)
+        # hard drop of outliers which lie beyond the machine limits
+        df.drop(df[df['Torque cutterhead [MNm]'] > 10.2].index, inplace=True)
+        df.drop(df[df['Total advance force [kN]'] > 27000].index, inplace=True)
+        df.drop(df[df['Total advance force [kN]'] < 4000].index, inplace=True)
+        df.drop(df[df['Penetration [mm/rot]'] < 0.1].index, inplace=True)
+        df.reset_index(inplace=True, drop=True)
     
-    df = df[df['Tunnel Distance [m]'] > 1*1000] # first km not representative
-    
-    # rename columns for consistency through different datasets
-    df.rename(columns={'advance': 'Class'}, inplace=True)
-    
-    df.rename(columns={'CH Rotation [rpm]': 'Speed cutterhead for display [rpm]'},
-            inplace=True)
-    df.rename(columns={'CH Penetration [mm/rot]': 'Penetration [mm/rot]'},
-              inplace=True)
-    df.rename(columns={'CH Torque [MNm]': 'Torque cutterhead [MNm]'},
-              inplace=True)
-    df.rename(columns={'Thrust Force [kN]': 'Total advance force [kN]'},
-              inplace=True)
-    
-    df.reset_index(inplace=True, drop=True)
-    
-elif tunnel == 'Synth_BBT':    
-    # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
-    df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
-    # df['GI'] = df['GI'] - 1
-    
-    # hard drop of outliers which lie beyond the machine limits
-    df.drop(df[df['Torque cutterhead [MNm]'] > 4.5].index, inplace=True)
-    df.drop(df[df['Total advance force [kN]'] < 2000].index, inplace=True)
-    df.drop(df[df['Total advance force [kN]'] > 17500].index, inplace=True)
-    df.drop(df[df['Penetration [mm/rot]'] < 0.1].index, inplace=True)
-    df = df[df['Tunnel Distance [m]'] > 1*1000] # first km not representative
-    
-    # rename columns for consistency through different datasets
-    df.rename(columns={'GI': 'Class'}, inplace=True)
-    df.rename(columns={'Speed cutterhead [rpm]': 'Speed cutterhead for display [rpm]'},
-            inplace=True)
-
-    df.reset_index(inplace=True, drop=True)    
-
-elif tunnel == 'Synth_BBT_UT':    
-    df = pd.read_parquet(
-        fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
-    
-    df['Class'] = df['Class'] - 1
-    
-    # hard drop of outliers which lie beyond the machine limits
-    df.drop(df[df['Torque cutterhead [MNm]'] > 10.2].index, inplace=True)
-    df.drop(df[df['Total advance force [kN]'] > 27000].index, inplace=True)
-    df.drop(df[df['Total advance force [kN]'] < 4000].index, inplace=True)
-    df.drop(df[df['Penetration [mm/rot]'] < 0.1].index, inplace=True)
-    df.reset_index(inplace=True, drop=True)
-
-elif tunnel == 'Synth_UT_BBT':    
-    df = pd.read_parquet(
-        fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
+    elif tunnel == 'BBT':
+        # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
+        df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
+        # df['GI'] = df['GI'] -1
         
-    # hard drop of outliers which lie beyond the machine limits
-    df.drop(df[df['Torque cutterhead [MNm]'] > 4.5].index, inplace=True)
-    df.drop(df[df['Total advance force [kN]'] < 2000].index, inplace=True)
-    df.drop(df[df['Total advance force [kN]'] > 17500].index, inplace=True)
-    df.drop(df[df['Penetration [mm/rot]'] < 0.1].index, inplace=True)
-    df = df[df['Tunnel Distance [m]'] > 1*1000] # first km not representative
-    
-    # rename columns for consistency through different datasets
-    df.rename(columns={'GI': 'Class'}, inplace=True)
-    df.rename(columns={'Speed cutterhead [rpm]': 'Speed cutterhead for display [rpm]'},
-            inplace=True)
-    df.reset_index(inplace=True, drop=True)
-
-
-columns = ['Tunnel Distance [m]',
-           'Advance speed [mm/min]',
-           'Pressure advance cylinder bottom side [bar]',
-           'Penetration [mm/rot]',
-           'Speed cutterhead for display [rpm]',
-           'Torque cutterhead [MNm]',
-           'Total advance force [kN]',
-           'spec. penetration [mm/rot/MN]', 
-           'torque ratio', 
-           ]
-
-rmc = ['Class']
-
-df = df[columns + rmc]      
-
-# =============================================================================
-# Define train/validation/test sections, variables and sequence length
-# =============================================================================
-
-if tunnel == 'Synth_BBT':
-    columns = ['Penetration [mm/rot]',
-               'Speed cutterhead for display [rpm]',
-               'Torque cutterhead [MNm]',
-               'Total advance force [kN]',
-               'torque ratio', 
-               ]
-    
-    target_column = ['Class']
-    
-    val_start = 0
-    val_end = 0.25
-    test_start1 = 3.5
-    test_end1 = 4.5
-    test_start2 = 5.0
-    test_end2 = 6.0
-    test_start3 = 9.5
-    test_end3 = 10.5
+        # hard drop of outliers which lie beyond the machine limits
+        df.drop(df[df['Torque cutterhead [MNm]'] > 4.5].index, inplace=True)
+        df.drop(df[df['Total advance force [kN]'] < 2000].index, inplace=True)
+        df.drop(df[df['Total advance force [kN]'] > 17500].index, inplace=True)
+        df.drop(df[df['Penetration [mm/rot]'] < 0.1].index, inplace=True)
+        df = df[df['Tunnel Distance [m]'] > 1*1000] # first km not representative
         
-    # parameters for sequences
-    seq_size = 100
+        # rename columns for consistency through different datasets
+        df.rename(columns={'GI': 'Class'}, inplace=True)
+        df.rename(columns={'Speed cutterhead [rpm]': 'Speed cutterhead for display [rpm]'},
+                inplace=True)
+        df.reset_index(inplace=True, drop=True)
+        
+    if tunnel == 'FB':
+        # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
+        df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
     
-elif tunnel == 'BBT':
+        df = df[df['Tunnel Distance [m]'] > 1*1000] # first km not representative
+        
+        # rename columns for consistency through different datasets
+        df.rename(columns={'advance': 'Class'}, inplace=True)
+        
+        df.rename(columns={'CH Rotation [rpm]': 'Speed cutterhead for display [rpm]'},
+                inplace=True)
+        df.rename(columns={'CH Penetration [mm/rot]': 'Penetration [mm/rot]'},
+                  inplace=True)
+        df.rename(columns={'CH Torque [MNm]': 'Torque cutterhead [MNm]'},
+                  inplace=True)
+        df.rename(columns={'Thrust Force [kN]': 'Total advance force [kN]'},
+                  inplace=True)
+        df.rename(columns={'Speed [mm/min]': 'Advance speed [mm/min]'},
+                  inplace=True)
+        
+        df.reset_index(inplace=True, drop=True)
     
-    columns = ['Advance speed [mm/min]',
-               'Pressure advance cylinder bottom side [bar]',
+    
+    columns = ['Tunnel Distance [m]',
+               'Advance speed [mm/min]',
                'Penetration [mm/rot]',
                'Speed cutterhead for display [rpm]',
                'Torque cutterhead [MNm]',
@@ -182,140 +83,120 @@ elif tunnel == 'BBT':
                'torque ratio', 
                ]
     
-    target_column = ['Class']
+    rmc = ['Class']
     
-    val_start = 10.5
-    val_end = 11.5
-    test_start1 = 3.5
-    test_end1 = 4.5
-    test_start2 = 5.0
-    test_end2 = 6.0
-    test_start3 = 9.5
-    test_end3 = 10.5
+    df = df[columns + rmc]      
+    
+    # =============================================================================
+    # Define train/validation/test sections, variables and sequence length
+    # =============================================================================
         
-    # parameters for sequences
-    seq_size = 100
+    if tunnel == 'BBT':
         
-elif tunnel == 'UT':
-    columns = ['Advance speed [mm/min]',
-               'Pressure advance cylinder bottom side [bar]',
-               'Penetration [mm/rot]',
-               'Speed cutterhead for display [rpm]',
-               'Torque cutterhead [MNm]',
-               'Total advance force [kN]',
-               'spec. penetration [mm/rot/MN]', 
-               'torque ratio', 
-               ]
+        columns = ['Advance speed [mm/min]',
+                   'Penetration [mm/rot]',
+                   'Speed cutterhead for display [rpm]',
+                   'Torque cutterhead [MNm]',
+                   'Total advance force [kN]',
+                   'spec. penetration [mm/rot/MN]', 
+                   'torque ratio', 
+                   ]
+        
+        target_column = ['Class']
+        
+        val_start = 10.5
+        val_end = 11.5
+        test_start1 = 3.5
+        test_end1 = 4.5
+        test_start2 = 5.0
+        test_end2 = 6.0
+        test_start3 = 9.5
+        test_end3 = 10.5
+            
+        # parameters for sequences
+        seq_size = 100
+            
+    elif tunnel == 'UT':
+        columns = ['Advance speed [mm/min]',
+                   'Penetration [mm/rot]',
+                   'Speed cutterhead for display [rpm]',
+                   'Torque cutterhead [MNm]',
+                   'Total advance force [kN]',
+                   'spec. penetration [mm/rot/MN]', 
+                   'torque ratio', 
+                   ]
+        
+        df_spec_tor = df[['spec. penetration [mm/rot/MN]', 
+                     'torque ratio', 
+                     'Tunnel Distance [m]',
+                     'Class',
+                     ]]
+        
+        target_column = ['Class']
     
-    df_spec_tor = df[['spec. penetration [mm/rot/MN]', 
-                 'torque ratio', 
-                 'Tunnel Distance [m]',
-                 'Class',
-                 ]]
+        # df_spec_tor.to_csv('spec. penetration and torque ratio.csv', sep=',',
+        #                    index=False, encoding='utf-8')
+        # columns_2plot = columns + target_column
+        # subplots(df, columns_2plot, 2600, 2800)
     
-    target_column = ['Class']
+        val_start = 3.5
+        val_end = 4.5
+        test_start1 = 2.4 #4.9
+        test_end1 = 2.8 #5.25
+        test_start2 = 4.9
+        test_end2 = 5.25
+        test_start3 = 5.9
+        test_end3 = 6.2
+            
+        # parameters for sequences
+        seq_size = 100
+        
+    elif tunnel == 'FB':
+        
+        columns = ['Advance speed [mm/min]',
+                   'Penetration [mm/rot]',
+                   'Speed cutterhead for display [rpm]',
+                   'Torque cutterhead [MNm]',
+                   'Total advance force [kN]',
+                   'spec. penetration [mm/rot/MN]', 
+                   'torque ratio', 
+                   ]
+        
+        target_column = ['Class']
+        
+        val_start = 0
+        val_end = 0.25
+        test_start1 = 3.5
+        test_end1 = 4.5
+        test_start2 = 5.5
+        test_end2 = 6.5
+        test_start3 = 7.5
+        test_end3 = 8.5
+            
+        # parameters for sequences
+        seq_size = 100
+        
+    df1 = df[(df['Tunnel Distance [m]'] >= test_start1*1000) & 
+                      (df['Tunnel Distance [m]'] < test_end1*1000)]
+    
+    df2 = df[(df['Tunnel Distance [m]'] >= test_start2*1000) & 
+                      (df['Tunnel Distance [m]'] < test_end2*1000)]
+    
+    df3 = df[(df['Tunnel Distance [m]'] >= test_start3*1000) & 
+                      (df['Tunnel Distance [m]'] < test_end3*1000)]
+    
+    return test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3
 
-    # df_spec_tor.to_csv('spec. penetration and torque ratio.csv', sep=',',
-    #                    index=False, encoding='utf-8')
-    # columns_2plot = columns + target_column
-    # subplots(df, columns_2plot, 2600, 2800)
+tunnel = 'BBT' # 'BBT'
+Class = 3 #3 BBT #4 UT #1 FB
 
-    val_start = 3.5
-    val_end = 4.5
-    test_start1 = 2.4 #4.9
-    test_end1 = 2.8 #5.25
-    test_start2 = 4.9
-    test_end2 = 5.25
-    test_start3 = 5.9
-    test_end3 = 6.2
-        
-    # parameters for sequences
-    seq_size = 100
-    
-elif tunnel == 'FB':
-    
-    columns = ['Advance speed [mm/min]',
-               'Penetration [mm/rot]',
-               'Speed cutterhead for display [rpm]',
-               'Torque cutterhead [MNm]',
-               'Total advance force [kN]',
-               'spec. penetration [mm/rot/MN]', 
-               'torque ratio', 
-               ]
-    
-    target_column = ['Class']
-    
-    val_start = 0
-    val_end = 0.25
-    test_start1 = 3.5
-    test_end1 = 4.5
-    test_start2 = 5.5
-    test_end2 = 6.5
-    test_start3 = 7.5
-    test_end3 = 8.5
-        
-    # parameters for sequences
-    seq_size = 100
+test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3 = load_data(tunnel, Class)
 
-elif tunnel == 'Synth_BBT_UT':
-    columns = ['Penetration [mm/rot]',
-               'Speed cutterhead for display [rpm]',
-               'Torque cutterhead [MNm]',
-               'Total advance force [kN]',
-               'torque ratio', 
-               ]
-    
-    target_column = ['Class']
-    
-    val_start = 0
-    val_end = 0.25
-    test_start1 = 2.4 #4.9
-    test_end1 = 2.8 #5.25
-    test_start2 = 4.9
-    test_end2 = 5.25
-    test_start3 = 5.9
-    test_end3 = 6.2
-        
-    # parameters for sequences
-    seq_size = 100
-    
-elif tunnel == 'Synth_UT_BBT':
-    columns = ['Penetration [mm/rot]',
-               'Speed cutterhead for display [rpm]',
-               'Torque cutterhead [MNm]',
-               'Total advance force [kN]',
-               'torque ratio', 
-               ]
-    
-    target_column = ['Class']
-    
-    val_start = 0
-    val_end = 0.25
-    test_start1 = 3.5
-    test_end1 = 4.5
-    test_start2 = 5.0
-    test_end2 = 6.0
-    test_start3 = 9.5
-    test_end3 = 10.5
-        
-    # parameters for sequences
-    seq_size = 100
-    
-df1 = df[(df['Tunnel Distance [m]'] >= test_start1*1000) & 
-                  (df['Tunnel Distance [m]'] < test_end1*1000)]
-
-df2 = df[(df['Tunnel Distance [m]'] >= test_start2*1000) & 
-                  (df['Tunnel Distance [m]'] < test_end2*1000)]
-
-df3 = df[(df['Tunnel Distance [m]'] >= test_start3*1000) & 
-                  (df['Tunnel Distance [m]'] < test_end3*1000)]
 # =============================================================================
 # Isolation Forest
 # =============================================================================
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from sklearn.covariance import EllipticEnvelope
 from sklearn.ensemble import IsolationForest
 
 def isolation_forest(df):
@@ -771,3 +652,128 @@ def visualize_VAR(df, anomalies, test_start, test_end, file_name):
 visualize_VAR(df1_VAR, test1_anom, test_start1, test_end1, 'test_set1')
 visualize_VAR(df2_VAR, test2_anom, test_start2, test_end2, 'test_set2')
 visualize_VAR(df3_VAR, test3_anom, test_start3, test_end3, 'test_set3')
+
+# =============================================================================
+# Clustering-based anomaly detection
+# =============================================================================
+from sklearn.cluster import KMeans
+from kneed import KneeLocator
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.metrics import pairwise_distances_argmin_min
+
+# load test datasets, drop Class and Tunnel Distance
+test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3 = load_data(tunnel, Class)
+
+df1 = df1.drop(columns=['Class', 'Tunnel Distance [m]'])
+df2 = df2.drop(columns=['Class', 'Tunnel Distance [m]'])
+df3 = df3.drop(columns=['Class', 'Tunnel Distance [m]'])
+
+# KMEANS
+## Elbow Method
+dfs = {
+    "test_set1": df1,
+    "test_set2": df2,
+    "test_set3": df3}
+
+for test_set, df in dfs.items():
+    
+    # Scale the data using standardscaler
+    scaler = StandardScaler()
+    df = scaler.fit_transform(df)
+    
+    n_clusters = range(1, 11)
+    
+    # calculate inertia for different cluster numbers
+    inertia = []
+    for i in n_clusters:
+        model = KMeans(n_clusters=i, random_state=42)
+        model.fit(df)
+        inertia.append(model.inertia_)
+    
+    # Find the optimal number of clusters using KneeLocator
+    knee_locator = KneeLocator(n_clusters,
+                               inertia,
+                               curve="convex",
+                               direction="decreasing")
+    optimal_clusters = knee_locator.knee
+
+    # Plot the elbow curve
+    # plt.plot(n_clusters, inertia, marker='o')
+    # plt.axvline(x=optimal_clusters, color='r', linestyle='--',
+    #             label=f'{test_set} Optimal Clusters: {optimal_clusters}')
+    # plt.xlabel('Number of Clusters')
+    # plt.ylabel('Inertia')
+    # plt.title('Elbow Curve')
+    # plt.legend()
+    print(f"The optimal number of clusters in {test_set} is: {optimal_clusters}")
+    
+    # determine number of features to keep
+    # Fit PCA to data
+    pca = PCA()
+    pca.fit(df)
+    
+    # Calculate the explained variance ratio
+    explained_variance_ratio = pca.explained_variance_ratio_
+    
+    # Calculate the cumulative explained variance
+    cumulative_explained_variance = np.cumsum(explained_variance_ratio)
+    
+    # Plot the explained variance and cumulative explained variance
+    # plt.figure(figsize=(8, 6))
+    # plt.plot(range(1, len(explained_variance_ratio) + 1),
+    #          cumulative_explained_variance, marker='o', color='b')
+    # plt.axhline(y=0.90, color='r', linestyle='--')  # 90% threshold
+    # plt.xlabel('Number of Principal Components')
+    # plt.ylabel('Cumulative Explained Variance')
+    # plt.title('Explained Variance vs. Number of Components')
+    # plt.grid(True)
+    # plt.show()
+    
+    # Automatically choose the number of components for 90% explained variance
+    n_components = np.argmax(cumulative_explained_variance >= 0.95) + 1
+    print(f"Number of components to keep: {n_components}")
+    
+    # Apply PCA with the selected number of components
+    pca = PCA(n_components=n_components)
+    reduced_data = pca.fit_transform(df)
+    
+    # Determine Anomalys
+    # Fit the KMeans model
+    kmeans = KMeans(n_clusters=optimal_clusters, random_state=42)
+    kmeans.fit(reduced_data)
+    
+    # Get cluster labels and centroids
+    labels = kmeans.labels_
+    centroids = kmeans.cluster_centers_
+    
+    # Calculate distance from each point to its nearest centroid
+    distances = np.min(pairwise_distances_argmin_min(reduced_data, centroids)[1], axis=1)
+    
+    # Determine Threshold for Anomalies
+    # Set outliers_fraction
+    # (e.g., 0.1 indicates 10% of points are considered outliers)
+    outliers_fraction = 0.1
+    number_of_outliers = int(len(distances) * outliers_fraction)
+    
+    # Find the threshold: minimum distance of the top "outliers_fraction" most distant points
+    threshold = np.partition(distances, -number_of_outliers)[-number_of_outliers]
+    
+    # Mark Anomalies
+    # Mark points as anomaly (1) or normal (0) based on the threshold
+    anomalies = np.where(distances >= threshold, 1, 0)
+    
+    # Create a new column in the original DataFrame for anomalies
+    df['Anomaly'] = anomalies
+    
+    # Visualize clusters with anomalies
+    plt.figure(figsize=(10, 6))
+    
+    plt.scatter(df.iloc[:, 0], df.iloc[:, 1], c=labels, cmap='viridis', label="Normal Points")
+    plt.scatter(df.iloc[anomalies == 1, 0], df.iloc[anomalies == 1, 1], color='red', label="Anomalies")
+    plt.title('Clusters and Anomalies')
+    plt.xlabel('Feature 1')
+    plt.ylabel('Feature 2')
+    plt.legend()
+    plt.show()
+    
