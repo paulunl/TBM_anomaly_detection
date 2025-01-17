@@ -81,6 +81,7 @@ if tunnel == 'UT':
     end_test_2 = 5.25
     start_test_3 = 5.9
     end_test_3 = 6.2
+    interval = 0.03
     
 elif tunnel == 'Synth_BBT_UT':
     CLASS = 4
@@ -92,6 +93,7 @@ elif tunnel == 'Synth_BBT_UT':
     end_test_2 = 5.25
     start_test_3 = 5.9
     end_test_3 = 6.2
+    interval = 0.03
     
 elif tunnel == 'Synth_BBT':
     CLASS = 3
@@ -103,6 +105,7 @@ elif tunnel == 'Synth_BBT':
     end_test_2 = 6.0
     start_test_3 = 9.5
     end_test_3 = 10.5
+    interval = 0.05
     
 elif tunnel == 'BBT':
     CLASS = 3
@@ -114,6 +117,7 @@ elif tunnel == 'BBT':
     end_test_2 = 6.0
     start_test_3 = 9.5
     end_test_3 = 10.5
+    interval = 0.05
 
 elif tunnel == 'FB':
     CLASS = 1
@@ -125,6 +129,7 @@ elif tunnel == 'FB':
     end_test_2 = 6.5
     start_test_3 = 7.5
     end_test_3 = 8.5
+    interval = 0.01
         
 else:
     print('tunnel not defined')
@@ -492,7 +497,7 @@ def threshold(error_test, title):
     sns.despine(ax=ax_box, left=True)
     ax_hist.legend(loc='upper right', facecolor='white',
                    edgecolor='black', framealpha=1, prop={'size': 16})
-    plt.savefig(fr'02_Results\{tunnel}\02_Plots\03_threshold\{title}_{file_name}.png', dpi=300)
+    # plt.savefig(fr'02_Results\{tunnel}\02_Plots\03_threshold\{title}_{file_name}.png', dpi=300)
 
     return adjusted_upper_bound, upper_bound
 
@@ -513,7 +518,8 @@ def plot_reconstruction_error(error_list,
                               title,
                               file_name,
                               threshold,
-                              adjusted_threshold
+                              adjusted_threshold,
+                              interval
                               ):
     
 
@@ -541,7 +547,7 @@ def plot_reconstruction_error(error_list,
                                              'adjusted Threshold', 'Label'])
     
     # arrange list for Tunnel Distance at x axis
-    df['Tunnel Distance [km]'] = np.arange(start_km, (start_km*1000 + 0.05*(len(error_list)-0.9))/1000, 0.05/1000) # -0.9 only because the length somehow doesnt match without it
+    df['Tunnel Distance [km]'] = np.arange(start_km, (start_km*1000 + interval*(len(error_list)-0.9))/1000, interval/1000) # -0.9 only because the length somehow doesnt match without it
     
     # shifting Error for half of sequence length to have it compared in the middle of SL
     df['Error'] = df['Error'].shift(int(sequence_length/2))
@@ -555,8 +561,8 @@ def plot_reconstruction_error(error_list,
     
     ax.scatter(df['Tunnel Distance [km]'], df['Error'], s=2, c='black',
                label='Reconstruction Error')
-    plt.xlim(start_km + 0.05*int(sequence_length/2)/1000,
-             start_km + 0.05*len(error_list)/1000)
+    plt.xlim(start_km + interval*int(sequence_length/2)/1000,
+             start_km + interval*len(error_list)/1000)
     plt.ylim(0, df['Error'].max()+0.012)
     
     # plotting threshhold and skewness adjusted threshold
@@ -570,7 +576,7 @@ def plot_reconstruction_error(error_list,
     plt.title(f'{title}', fontsize='16')
     # custom tick labels
     ax.xaxis.set_ticks(np.arange(
-        start_km, (start_km*1000 + 0.05*(len(error_list)-0.9))/1000, 0.1))
+        start_km, (start_km*1000 + interval*(len(error_list)-0.9))/1000, 0.1))
     # Create a formatter function for tick labels in [m]
     def multiply_by_1000(x, pos):
         return f'{x * 1000:.0f}'
@@ -678,7 +684,8 @@ df_Error_test_1 = plot_reconstruction_error(error_test1,
                                             'Test Dataset 1',
                                             file_name,
                                             threshold_all,
-                                            adjusted_threshold_all
+                                            adjusted_threshold_all,
+                                            interval
                                             )
 
 df_Error_test_2 = plot_reconstruction_error(error_test2,
@@ -688,7 +695,8 @@ df_Error_test_2 = plot_reconstruction_error(error_test2,
                                             'Test Dataset 2',
                                             file_name,
                                             threshold_all,
-                                            adjusted_threshold_all
+                                            adjusted_threshold_all,
+                                            interval
                                             )
 
 df_Error_test_3 = plot_reconstruction_error(error_test3,
@@ -698,6 +706,106 @@ df_Error_test_3 = plot_reconstruction_error(error_test3,
                                             'Test Dataset 3',
                                             file_name,
                                             threshold_all,
-                                            adjusted_threshold_all
+                                            adjusted_threshold_all,
+                                            interval
                                             )
+
+# =============================================================================
+# save results
+# =============================================================================
+
+def save_df(error_list,
+            dataloader,
+            sequence_length,
+            start_km,
+            title,
+            file_name,
+            threshold,
+            adjusted_threshold,
+            tunnel_name):
+    """
+    Processes reconstruction errors and saves the resulting DataFrame to a
+    CSV file.
+    
+    Parameters:
+        error_list: List of reconstruction errors.
+        dataloader: Dataloader containing the labels for each data point.
+        sequence_length: Length of the sequences used in reconstruction.
+        start_km: Starting kilometer for x-axis.
+        title: Plot title.
+        file_name: Name of the output file.
+        threshold: Original threshold.
+        adjusted_threshold: Adjusted threshold for anomaly detection.
+        tunnel_name: Name of the tunnel for labeling.
+    """
+
+    # Create a list of labels from the dataloader
+    label_list = []
+    for _, label in dataloader:
+        for lbl in label:
+            label_list.append(float(lbl.numpy()))
+
+    # Prepare threshold lists for the plot
+    threshold_for_plot = [threshold] * len(error_list)
+    adjusted_threshold_for_plot = [adjusted_threshold] * len(error_list)
+
+    # Create a DataFrame
+    df = pd.DataFrame({
+        'Error': error_list,
+        'Threshold': threshold_for_plot,
+        'Adjusted Threshold': adjusted_threshold_for_plot,
+        'Label': label_list
+    })
+
+    # Generate Tunnel Distance for x-axis
+    df['Tunnel Distance [km]'] = np.linspace(
+        start_km, 
+        start_km + interval * len(error_list) / 1000, 
+        len(error_list)
+    )
+
+    # Shift errors to align with sequence midpoint
+    df['Error'] = df['Error'].shift(int(sequence_length / 2))
+
+    # Drop the first rows corresponding to the shift
+    df = df[int(sequence_length / 2):].reset_index(drop=True)
+
+    # Identify anomalies based on the adjusted threshold
+    df['Anomaly'] = (df['Error'] >= adjusted_threshold).astype(int)
+
+    # Save the DataFrame to a CSV file
+    df.to_csv(fr'02_Results\{tunnel}\02_Plots\07_VAE\{title}_{file_name}.csv', index=False)
+    
+    return df
+
+df_Error_test_1_anomalies = save_df(error_test1,
+                                    test_dataloader1,
+                                    sequence_length,
+                                    start_test_1,
+                                    'Test Dataset 1',
+                                    file_name,
+                                    threshold_all,
+                                    adjusted_threshold_all,
+                                    tunnel)
+
+df_Error_test_2_anomalies = save_df(error_test2,
+                                    test_dataloader2,
+                                    sequence_length,
+                                    start_test_2,
+                                    'Test Dataset 2',
+                                    file_name,
+                                    threshold_all,
+                                    adjusted_threshold_all,
+                                    tunnel)
+
+df_Error_test_3_anomalies = save_df(error_test3,
+                                    test_dataloader3,
+                                    sequence_length,
+                                    start_test_3,
+                                    'Test Dataset 3',
+                                    file_name,
+                                    threshold_all,
+                                    adjusted_threshold_all,
+                                    tunnel)
+
 

@@ -21,8 +21,8 @@ register_matplotlib_converters()
 # =============================================================================
 def load_data(tunnel, Class):    
     if tunnel == 'UT':
-        df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
-        # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+        # df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+        df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
         df['Class'] = df['Class'] - 1
         
         # hard drop of outliers which lie beyond the machine limits
@@ -51,9 +51,14 @@ def load_data(tunnel, Class):
         df.reset_index(inplace=True, drop=True)
         
     if tunnel == 'FB':
-        # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
-        df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
-    
+        df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
+        
+        # hard drop of outliers which lie beyond the machine limits
+        df.drop(df[df['CH Torque [MNm]'] > 16.672].index, inplace=True)
+        df.drop(df[df['Thrust Force [kN]'] > 27000].index, inplace=True)
+        df.drop(df[df['Thrust Force [kN]'] < 4000].index, inplace=True)
+        df.drop(df[df['CH Penetration [mm/rot]'] < 0.1].index, inplace=True)
+        df.drop(df[df['spec. penetration [mm/rot/MN]'] > 2].index, inplace=True)
         df = df[df['Tunnel Distance [m]'] > 1*1000] # first km not representative
         
         # rename columns for consistency through different datasets
@@ -112,6 +117,7 @@ def load_data(tunnel, Class):
         test_end2 = 6.0
         test_start3 = 9.5
         test_end3 = 10.5
+        interval = 0.05
             
         # parameters for sequences
         seq_size = 100
@@ -147,6 +153,7 @@ def load_data(tunnel, Class):
         test_end2 = 5.25
         test_start3 = 5.9
         test_end3 = 6.2
+        interval = 0.03
             
         # parameters for sequences
         seq_size = 100
@@ -172,6 +179,7 @@ def load_data(tunnel, Class):
         test_end2 = 6.5
         test_start3 = 7.5
         test_end3 = 8.5
+        interval = 0.01
             
         # parameters for sequences
         seq_size = 100
@@ -185,12 +193,12 @@ def load_data(tunnel, Class):
     df3 = df[(df['Tunnel Distance [m]'] >= test_start3*1000) & 
                       (df['Tunnel Distance [m]'] < test_end3*1000)]
     
-    return test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3
+    return interval, test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3
 
-tunnel = 'BBT' # 'BBT'
-Class = 3 #3 BBT #4 UT #1 FB
+tunnel = 'FB' # 'BBT'
+Class = 1 #3 BBT #4 UT #1 FB
 
-test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3 = load_data(tunnel, Class)
+interval, test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3 = load_data(tunnel, Class)
 
 # =============================================================================
 # Isolation Forest
@@ -512,7 +520,6 @@ def visualize_VAR(df, anomalies, test_start, test_end, file_name):
                 label='Anomaly')
     ax2.set_ylabel('spec. penetration \n[mm/rot/MN]')
     ax2.set_xlim(test_start*1000, test_end*1000)
-
     a = anomalies['torque ratio'] == 1
     ax3.plot(df['Tunnel Distance [m]'], df['torque ratio'].rolling(35).mean(),
              color='black')
@@ -663,24 +670,28 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import pairwise_distances_argmin_min
 
 # load test datasets, drop Class and Tunnel Distance
-test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3 = load_data(tunnel, Class)
+interval, test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3 = load_data(tunnel, Class)
 
-df1 = df1.drop(columns=['Class', 'Tunnel Distance [m]'])
-df2 = df2.drop(columns=['Class', 'Tunnel Distance [m]'])
-df3 = df3.drop(columns=['Class', 'Tunnel Distance [m]'])
+df1_clust = df1.drop(columns=['Class', 'Tunnel Distance [m]'])
+df2_clust = df2.drop(columns=['Class', 'Tunnel Distance [m]'])
+df3_clust = df3.drop(columns=['Class', 'Tunnel Distance [m]'])
+
+df_all = pd.concat([df1, df2, df3], ignore_index=True)
+df_all_clust = pd.concat([df1_clust, df2_clust, df3_clust], ignore_index=True)
 
 # KMEANS
 ## Elbow Method
 dfs = {
-    "test_set1": df1,
-    "test_set2": df2,
-    "test_set3": df3}
+    "test_set1": df1_clust,
+    "test_set2": df2_clust,
+    "test_set3": df3_clust,
+    'all_test_sets': df_all_clust}
 
 for test_set, df in dfs.items():
     
     # Scale the data using standardscaler
     scaler = StandardScaler()
-    df = scaler.fit_transform(df)
+    df_scaled = scaler.fit_transform(df)
     
     n_clusters = range(1, 11)
     
@@ -688,7 +699,7 @@ for test_set, df in dfs.items():
     inertia = []
     for i in n_clusters:
         model = KMeans(n_clusters=i, random_state=42)
-        model.fit(df)
+        model.fit(df_scaled)
         inertia.append(model.inertia_)
     
     # Find the optimal number of clusters using KneeLocator
@@ -711,7 +722,7 @@ for test_set, df in dfs.items():
     # determine number of features to keep
     # Fit PCA to data
     pca = PCA()
-    pca.fit(df)
+    pca.fit(df_scaled)
     
     # Calculate the explained variance ratio
     explained_variance_ratio = pca.explained_variance_ratio_
@@ -736,7 +747,7 @@ for test_set, df in dfs.items():
     
     # Apply PCA with the selected number of components
     pca = PCA(n_components=n_components)
-    reduced_data = pca.fit_transform(df)
+    reduced_data = pca.fit_transform(df_scaled)
     
     # Determine Anomalys
     # Fit the KMeans model
@@ -748,12 +759,11 @@ for test_set, df in dfs.items():
     centroids = kmeans.cluster_centers_
     
     # Calculate distance from each point to its nearest centroid
-    distances = np.min(pairwise_distances_argmin_min(reduced_data, centroids)[1], axis=1)
-    
+    _, distances = pairwise_distances_argmin_min(reduced_data, centroids)    
     # Determine Threshold for Anomalies
     # Set outliers_fraction
     # (e.g., 0.1 indicates 10% of points are considered outliers)
-    outliers_fraction = 0.1
+    outliers_fraction = 0.005
     number_of_outliers = int(len(distances) * outliers_fraction)
     
     # Find the threshold: minimum distance of the top "outliers_fraction" most distant points
@@ -767,13 +777,450 @@ for test_set, df in dfs.items():
     df['Anomaly'] = anomalies
     
     # Visualize clusters with anomalies
-    plt.figure(figsize=(10, 6))
+    # plt.figure(figsize=(10, 6))
     
-    plt.scatter(df.iloc[:, 0], df.iloc[:, 1], c=labels, cmap='viridis', label="Normal Points")
-    plt.scatter(df.iloc[anomalies == 1, 0], df.iloc[anomalies == 1, 1], color='red', label="Anomalies")
-    plt.title('Clusters and Anomalies')
-    plt.xlabel('Feature 1')
-    plt.ylabel('Feature 2')
-    plt.legend()
-    plt.show()
+    # plt.scatter(df.iloc[:, 0], df.iloc[:, 1], c=labels, cmap='viridis', label="Normal Points")
+    # plt.scatter(df.iloc[anomalies == 1, 0], df.iloc[anomalies == 1, 1], color='red', label="Anomalies")
+    # plt.title('Clusters and Anomalies')
+    # plt.xlabel('Feature 1')
+    # plt.ylabel('Feature 2')
+    # plt.legend()
+    # plt.show()
     
+df1_clust['Tunnel Distance [m]'] = df1['Tunnel Distance [m]']
+df1_clust['Class'] = df1['Class']
+df2_clust['Tunnel Distance [m]'] = df2['Tunnel Distance [m]']
+df2_clust['Class'] = df2['Class']
+df3_clust['Tunnel Distance [m]'] = df3['Tunnel Distance [m]']
+df3_clust['Class'] = df3['Class']
+df_all_clust['Tunnel Distance [m]'] = df_all['Tunnel Distance [m]']
+df_all_clust['Class'] = df_all['Class']
+
+
+def visualize_clustering_anomalies(df,
+                                   test_start,
+                                   test_end,
+                                   file_name,
+                                   rolling_window=35):
+    """
+    Visualizes clustering-based anomalies in a DataFrame.
+    
+    Parameters:
+        df (pd.DataFrame): The DataFrame containing data and anomaly information.
+        test_start (float): Start of the test section in Tunnel Distance (in km).
+        test_end (float): End of the test section in Tunnel Distance (in km).
+        file_name (str): The name of the file to save the plot as.
+        save_path (str): The directory path to save the visualization file.
+        rolling_window (int): Window size for rolling mean visualization. Default is 35.
+    """
+    # Prepare for plotting
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 8))
+    
+    anomalies = df.loc[df['Anomaly'] == 1]  # Filter anomalies
+    
+    # Plot 1: Total advance force
+    ax1.plot(df['Tunnel Distance [m]'], 
+             df['Total advance force [kN]'].rolling(rolling_window).mean(), 
+             color='black', label='Normal')
+    ax1.plot(df['Tunnel Distance [m]'], df['Total advance force [kN]'], 
+             color='black', alpha=0.5)
+    ax1.scatter(anomalies['Tunnel Distance [m]'], 
+                anomalies['Total advance force [kN]'], color='red', label='Anomaly')
+    ax1.set_ylabel('Total Advance Force [kN]')
+    ax1.set_xlim(test_start * 1000, test_end * 1000)
+    ax1.legend(loc='best')
+    
+    # Plot 2: Specific penetration
+    ax2.plot(df['Tunnel Distance [m]'], 
+             df['spec. penetration [mm/rot/MN]'].rolling(rolling_window).mean(), 
+             color='black')
+    ax2.plot(df['Tunnel Distance [m]'], df['spec. penetration [mm/rot/MN]'], 
+             color='black', alpha=0.5)
+    ax2.scatter(anomalies['Tunnel Distance [m]'], 
+                anomalies['spec. penetration [mm/rot/MN]'], color='red')
+    ax2.set_ylabel('Specific Penetration [mm/rot/MN]')
+    ax2.set_xlim(test_start * 1000, test_end * 1000)
+    
+    # Plot 3: Torque ratio
+    ax3.plot(df['Tunnel Distance [m]'], 
+             df['torque ratio'].rolling(rolling_window).mean(), 
+             color='black')
+    ax3.plot(df['Tunnel Distance [m]'], df['torque ratio'], color='black', alpha=0.5)
+    ax3.scatter(anomalies['Tunnel Distance [m]'], 
+                anomalies['torque ratio'], color='red')
+    ax3.set_ylabel('Torque Ratio')
+    ax3.set_xlabel('Tunnel Distance [m]')
+    ax3.set_xlim(test_start * 1000, test_end * 1000)
+    
+    # Color map for clusters
+    n_clusters = df['Class'].max() - df['Class'].min() + 1
+    if n_clusters == 6:
+        cmap = (mpl.colors.ListedColormap(['green',
+                                       'greenyellow',
+                                       'gold',
+                                       'orange',
+                                       'darkorange',
+                                       'red']))
+    elif n_clusters == 5:
+        cmap = (mpl.colors.ListedColormap(['green',
+                                       'greenyellow',
+                                       'gold',
+                                       'orange',
+                                       'darkorange']))
+    elif n_clusters == 4 and tunnel == 'Synth_BBT':
+        cmap = (mpl.colors.ListedColormap([
+                                       'green',
+                                       'gold',
+                                       'orange',
+                                       'red']))
+    elif n_clusters == 4 and tunnel == 'BBT':
+        cmap = (mpl.colors.ListedColormap([
+                                       'green',
+                                       'gold',
+                                       'orange',
+                                       'red']))    
+    # elif n_clusters == 4 and df['Label'].min() == 0:
+    #     cmap = (mpl.colors.ListedColormap(['green',
+    #                                    'greenyellow',
+    #                                    'gold',
+    #                                    'orange'])
+    #             .with_extremes(over='red', under='green'))
+    elif n_clusters == 4 and df['Class'].min() == 1:
+        cmap = (mpl.colors.ListedColormap([
+                                       'greenyellow',
+                                       'gold',
+                                       'orange',
+                                       'darkorange']))
+    elif n_clusters == 3:
+        cmap = (mpl.colors.ListedColormap(['green',
+                                       'gold',
+                                       'red']))
+        
+    elif n_clusters == 2:
+        cmap = (mpl.colors.ListedColormap(['green',
+                                       'gold']))
+        
+    else:
+        print('colour map not suited for the data to be plotted')    
+    
+    #cbar ax1
+    c = ax1.pcolorfast(ax1.get_xlim(),
+                      ax1.get_ylim(),
+                      df['Class'].values[np.newaxis],
+                      cmap=cmap,
+                      vmin=(df['Class'].min()),
+                      vmax=(df['Class'].max()+1),
+                      alpha=0.5)
+    
+    cbar = fig.colorbar(c, ax=ax1) # , spacing='uniform'
+    
+    tick_locs = np.linspace(int(df['Class'].min()),
+                            int(df['Class'].max()+1),
+                            int(2 * n_clusters + 1))[1::2]
+    
+    tick_label = np.arange(int(df['Class'].min()),
+                                int(df['Class'].max() + 1))
+    
+    cbar.set_ticks(tick_locs)
+    cbar.set_ticklabels(tick_label)
+    
+    cbar.ax.set_ylim(df['Class'].min(), int(df['Class'].max()+1))
+    
+    # cbar ax2
+    c = ax2.pcolorfast(ax2.get_xlim(),
+                      ax2.get_ylim(),
+                      df['Class'].values[np.newaxis],
+                      cmap=cmap,
+                      vmin=(df['Class'].min()),
+                      vmax=(df['Class'].max()+1),
+                      alpha=0.5)
+    
+    cbar = fig.colorbar(c, ax=ax2) # , spacing='uniform'
+    
+    tick_locs = np.linspace(int(df['Class'].min()),
+                            int(df['Class'].max()+1),
+                            int(2 * n_clusters + 1))[1::2]
+    
+    tick_label = np.arange(int(df['Class'].min()),
+                                int(df['Class'].max() + 1))
+    
+    cbar.set_ticks(tick_locs)
+    cbar.set_ticklabels(tick_label)
+    
+    cbar.ax.set_ylim(df['Class'].min(), int(df['Class'].max()+1))
+    
+    # cbar ax3
+    c = ax3.pcolorfast(ax3.get_xlim(),
+                      ax3.get_ylim(),
+                      df['Class'].values[np.newaxis],
+                      cmap=cmap,
+                      vmin=(df['Class'].min()),
+                      vmax=(df['Class'].max()+1),
+                      alpha=0.5)
+    
+    cbar = fig.colorbar(c, ax=ax3) # , spacing='uniform'
+    
+    
+    tick_locs = np.linspace(int(df['Class'].min()),
+                            int(df['Class'].max()+1),
+                            int(2 * n_clusters + 1))[1::2]
+    
+    tick_label = np.arange(int(df['Class'].min()),
+                                int(df['Class'].max() + 1))
+    
+    cbar.set_ticks(tick_locs)
+    cbar.set_ticklabels(tick_label)
+    
+    cbar.ax.set_ylim(df['Class'].min(), int(df['Class'].max()+1))
+    
+    fig.tight_layout()
+    
+    # Save the figure
+    plt.savefig(fr'02_Results\{tunnel}\02_Plots\06_clustering\{file_name}_{tunnel}.png', dpi=300)
+    
+
+visualize_clustering_anomalies(df1_clust,
+                               test_start1,
+                               test_end1,
+                               'test_set1')
+visualize_clustering_anomalies(df2_clust,
+                               test_start2,
+                               test_end2,
+                               'test_set2')
+visualize_clustering_anomalies(df3_clust,
+                               test_start3,
+                               test_end3,
+                               'test_set3')
+
+# =============================================================================
+# VAE
+# =============================================================================
+
+def visualize_VAE_anomalies(df,
+                            test_start,
+                            test_end,
+                            file_name,
+                            title,
+                            tunnel,
+                            interval,
+                            rolling_window=35):
+    """
+    Visualizes VAE-based anomalies in a DataFrame.
+    
+    Parameters:
+        df (pd.DataFrame): The DataFrame containing data and anomaly information.
+        test_start (float): Start of the test section in Tunnel Distance (in km).
+        test_end (float): End of the test section in Tunnel Distance (in km).
+        file_name (str): The name of the file to save the plot as.
+        save_path (str): The directory path to save the visualization file.
+        rolling_window (int): Window size for rolling mean visualization. Default is 35.
+    """
+    # read csv with VAE results
+    df_VAE = pd.read_csv(fr'02_Results\{tunnel}\02_Plots\07_VAE\{title}_{file_name}')
+    # df_VAE = pd.read_csv(fr'02_Results\{tunnel}\02_Plots\07_VAE\Test Dataset 2_{file_name}')
+    start = (df_VAE['Tunnel Distance [km]']*1000).min()
+    stop = (df_VAE['Tunnel Distance [km]']*1000).max()
+    # start = 4901.46
+    # stop = 5246.94
+    
+    df_VAE['Tunnel Distance [m]'] = np.arange(start, stop, interval).round(2)
+    df_VAE = df_VAE.drop(columns = 'Tunnel Distance [km]')
+
+    df_merged = pd.merge(df, df_VAE, on ='Tunnel Distance [m]', how='inner')
+    # Prepare for plotting
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 8))
+    
+    anomalies = df_merged.loc[df_merged['Anomaly'] == 1]  # Filter anomalies
+    
+    # Plot 1: Total advance force
+    ax1.plot(df_merged['Tunnel Distance [m]'], 
+             df_merged['Total advance force [kN]'].rolling(rolling_window).mean(), 
+             color='black', label='Normal')
+    ax1.plot(df_merged['Tunnel Distance [m]'],
+             df_merged['Total advance force [kN]'], 
+             color='black', alpha=0.5)
+    ax1.scatter(anomalies['Tunnel Distance [m]'], 
+                anomalies['Total advance force [kN]'], color='red',
+                label='Anomaly')
+    ax1.set_ylabel('Total Advance Force [kN]')
+    ax1.set_xlim(test_start * 1000, test_end * 1000)
+    ax1.legend(loc='best')
+    
+    # Plot 2: Specific penetration
+    ax2.plot(df_merged['Tunnel Distance [m]'], 
+             df_merged['spec. penetration [mm/rot/MN]'].rolling(rolling_window).mean(), 
+             color='black')
+    ax2.plot(df_merged['Tunnel Distance [m]'],
+             df_merged['spec. penetration [mm/rot/MN]'], 
+             color='black', alpha=0.5)
+    ax2.scatter(anomalies['Tunnel Distance [m]'], 
+                anomalies['spec. penetration [mm/rot/MN]'], color='red')
+    ax2.set_ylabel('Specific Penetration [mm/rot/MN]')
+    ax2.set_xlim(test_start * 1000, test_end * 1000)
+    
+    # Plot 3: Torque ratio
+    ax3.plot(df_merged['Tunnel Distance [m]'], 
+             df_merged['torque ratio'].rolling(rolling_window).mean(), 
+             color='black')
+    ax3.plot(df_merged['Tunnel Distance [m]'], df_merged['torque ratio'],
+             color='black', alpha=0.5)
+    ax3.scatter(anomalies['Tunnel Distance [m]'], 
+                anomalies['torque ratio'], color='red')
+    ax3.set_ylabel('Torque Ratio')
+    ax3.set_xlabel('Tunnel Distance [m]')
+    ax3.set_xlim(test_start * 1000, test_end * 1000)
+    
+    # Color map for clusters
+    n_clusters = df_merged['Class'].max() - df_merged['Class'].min() + 1
+    
+    if n_clusters == 6:
+        cmap = (mpl.colors.ListedColormap(['green',
+                                       'greenyellow',
+                                       'gold',
+                                       'orange',
+                                       'darkorange',
+                                       'red']))
+    elif n_clusters == 5:
+        cmap = (mpl.colors.ListedColormap(['green',
+                                       'greenyellow',
+                                       'gold',
+                                       'orange',
+                                       'darkorange']))
+    elif n_clusters == 4 and tunnel == 'Synth_BBT':
+        cmap = (mpl.colors.ListedColormap([
+                                       'green',
+                                       'gold',
+                                       'orange',
+                                       'red']))
+    elif n_clusters == 4 and tunnel == 'BBT':
+        cmap = (mpl.colors.ListedColormap([
+                                       'green',
+                                       'gold',
+                                       'orange',
+                                       'red']))    
+    # elif n_clusters == 4 and df['Label'].min() == 0:
+    #     cmap = (mpl.colors.ListedColormap(['green',
+    #                                    'greenyellow',
+    #                                    'gold',
+    #                                    'orange'])
+    #             .with_extremes(over='red', under='green'))
+    elif n_clusters == 4 and df_merged['Class'].min() == 1:
+        cmap = (mpl.colors.ListedColormap([
+                                       'greenyellow',
+                                       'gold',
+                                       'orange',
+                                       'darkorange']))
+    elif n_clusters == 3:
+        cmap = (mpl.colors.ListedColormap(['green',
+                                       'gold',
+                                       'red']))
+        
+    elif n_clusters == 2:
+        cmap = (mpl.colors.ListedColormap(['green',
+                                       'gold']))
+        
+    else:
+        print('colour map not suited for the data to be plotted')    
+    
+    #cbar ax1
+    c = ax1.pcolorfast(ax1.get_xlim(),
+                      ax1.get_ylim(),
+                      df_merged['Class'].values[np.newaxis],
+                      cmap=cmap,
+                      vmin=(df_merged['Class'].min()),
+                      vmax=(df_merged['Class'].max()+1),
+                      alpha=0.5)
+    
+    cbar = fig.colorbar(c, ax=ax1) # , spacing='uniform'
+    
+    tick_locs = np.linspace(int(df_merged['Class'].min()),
+                            int(df_merged['Class'].max()+1),
+                            int(2 * n_clusters + 1))[1::2]
+    
+    tick_label = np.arange(int(df_merged['Class'].min()),
+                                int(df_merged['Class'].max() + 1))
+    
+    cbar.set_ticks(tick_locs)
+    cbar.set_ticklabels(tick_label)
+    
+    cbar.ax.set_ylim(df_merged['Class'].min(), int(df_merged['Class'].max()+1))
+    
+    # cbar ax2
+    c = ax2.pcolorfast(ax2.get_xlim(),
+                      ax2.get_ylim(),
+                      df_merged['Class'].values[np.newaxis],
+                      cmap=cmap,
+                      vmin=(df_merged['Class'].min()),
+                      vmax=(df_merged['Class'].max()+1),
+                      alpha=0.5)
+    
+    cbar = fig.colorbar(c, ax=ax2) # , spacing='uniform'
+    
+    tick_locs = np.linspace(int(df_merged['Class'].min()),
+                            int(df_merged['Class'].max()+1),
+                            int(2 * n_clusters + 1))[1::2]
+    
+    tick_label = np.arange(int(df_merged['Class'].min()),
+                                int(df_merged['Class'].max() + 1))
+    
+    cbar.set_ticks(tick_locs)
+    cbar.set_ticklabels(tick_label)
+    
+    cbar.ax.set_ylim(df_merged['Class'].min(), int(df_merged['Class'].max()+1))
+    
+    # cbar ax3
+    c = ax3.pcolorfast(ax3.get_xlim(),
+                      ax3.get_ylim(),
+                      df_merged['Class'].values[np.newaxis],
+                      cmap=cmap,
+                      vmin=(df_merged['Class'].min()),
+                      vmax=(df_merged['Class'].max()+1),
+                      alpha=0.5)
+    
+    cbar = fig.colorbar(c, ax=ax3) # , spacing='uniform'
+    
+    
+    tick_locs = np.linspace(int(df_merged['Class'].min()),
+                            int(df_merged['Class'].max()+1),
+                            int(2 * n_clusters + 1))[1::2]
+    
+    tick_label = np.arange(int(df_merged['Class'].min()),
+                                int(df_merged['Class'].max() + 1))
+    
+    cbar.set_ticks(tick_locs)
+    cbar.set_ticklabels(tick_label)
+    
+    cbar.ax.set_ylim(df_merged['Class'].min(), int(df_merged['Class'].max()+1))
+    
+    fig.tight_layout()
+    
+    # Save the figure
+    plt.savefig(fr'02_Results\{tunnel}\02_Plots\07_VAE\{title}_{file_name}_{tunnel}.png', dpi=300)
+
+
+file_name = 'UT_CLASS4_seq100_beta0.001_ep50_hse30_hsd30_ls3.csv'
+    
+visualize_VAE_anomalies(df1,
+                        test_start1,
+                        test_end1,
+                        file_name,
+                        'Test Dataset 1',
+                        tunnel,
+                        interval)
+
+
+visualize_VAE_anomalies(df2,
+                        test_start2,
+                        test_end2,
+                        file_name,
+                        'Test Dataset 2',
+                        tunnel,
+                        interval)
+
+visualize_VAE_anomalies(df3,
+                        test_start3,
+                        test_end3,
+                        file_name, 
+                        'Test Dataset 3',
+                        tunnel,
+                        interval)
