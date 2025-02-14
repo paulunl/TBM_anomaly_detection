@@ -52,7 +52,7 @@ from VAE_02_preprocessor_for_VAE import TBMDataset
 # =============================================================================
 tunnel = 'FB' #'Synth_BBT' #'UT'
 
-if tunnel == 'Synth_BBT' or tunnel == 'Synth_BBT_UT':
+if tunnel == 'Synth_BBT' or tunnel == 'Synth_BBT_UT' or tunnel == 'Synth_UT_BBT':
     input_size = 5  # Size of input features
 elif tunnel == 'FB':
     input_size = 7
@@ -94,6 +94,18 @@ elif tunnel == 'Synth_BBT_UT':
     start_test_3 = 5.9
     end_test_3 = 6.2
     interval = 0.03
+    
+elif tunnel == 'Synth_UT_BBT':
+    CLASS = 3
+    start_val = 0
+    end_val = 0.25
+    start_test_1 = 3.5
+    end_test_1 = 4.5
+    start_test_2 = 5.0
+    end_test_2 = 6.0
+    start_test_3 = 9.5
+    end_test_3 = 10.5
+    interval = 0.05 
     
 elif tunnel == 'Synth_BBT':
     CLASS = 3
@@ -473,7 +485,7 @@ def threshold(error_test, title):
     #     x_max = error_test.max()
 
     if error_test.max() > 0.1:
-        x_max = adjusted_upper_bound + 0.1
+        x_max = 5# adjusted_upper_bound + 0.1
         
     elif adjusted_upper_bound < 0.5:
         x_max = adjusted_upper_bound + 0.005
@@ -550,11 +562,11 @@ def plot_reconstruction_error(error_list,
     df['Tunnel Distance [km]'] = np.arange(start_km, (start_km*1000 + interval*(len(error_list)-0.9))/1000, interval/1000) # -0.9 only because the length somehow doesnt match without it
     
     # shifting Error for half of sequence length to have it compared in the middle of SL
-    df['Error'] = df['Error'].shift(int(sequence_length/2))
+    # df['Error'] = df['Error'].shift(int(sequence_length/2))
     
     # cutting out first part of section (half of seq length)
-    df = df[int(sequence_length/2):]
-    df = df.reset_index()
+    # df = df[int(sequence_length/2):]
+    # df = df.reset_index()
     
     # plotting reconstruction errors
     fig, ax = plt.subplots(1,1, figsize=(10,6))
@@ -604,6 +616,13 @@ def plot_reconstruction_error(error_list,
                                        'orange',
                                        'darkorange'])
                 .with_extremes(over='red', under='green'))
+    elif n_clusters == 4 and tunnel == 'Synth_UT_BBT':
+        cmap = (mpl.colors.ListedColormap([
+                                       'green',
+                                       'gold',
+                                       'orange',
+                                       'red'])
+                .with_extremes(over='red', under='green'))
     elif n_clusters == 4 and tunnel == 'Synth_BBT':
         cmap = (mpl.colors.ListedColormap([
                                        'green',
@@ -612,6 +631,12 @@ def plot_reconstruction_error(error_list,
                                        'red'])
                 .with_extremes(over='red', under='green'))
     elif n_clusters == 4 and tunnel == 'BBT':
+        cmap = (mpl.colors.ListedColormap([
+                                       'green',
+                                       'gold',
+                                       'orange',
+                                       'red']))    
+    elif n_clusters == 4 and tunnel == 'BBT_no_removal':
         cmap = (mpl.colors.ListedColormap([
                                        'green',
                                        'gold',
@@ -683,8 +708,8 @@ df_Error_test_1 = plot_reconstruction_error(error_test1,
                                             start_test_1,
                                             'Test Dataset 1',
                                             file_name,
-                                            threshold_all,
-                                            adjusted_threshold_all,
+                                            threshold_test1,
+                                            adjusted_threshold_test1,
                                             interval
                                             )
 
@@ -705,8 +730,8 @@ df_Error_test_3 = plot_reconstruction_error(error_test3,
                                             start_test_3,
                                             'Test Dataset 3',
                                             file_name,
-                                            threshold_all,
-                                            adjusted_threshold_all,
+                                            threshold_test3,
+                                            adjusted_threshold_test3,
                                             interval
                                             )
 
@@ -807,5 +832,4 @@ df_Error_test_3_anomalies = save_df(error_test3,
                                     threshold_all,
                                     adjusted_threshold_all,
                                     tunnel)
-
 
