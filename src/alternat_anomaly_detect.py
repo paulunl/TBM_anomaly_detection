@@ -15,6 +15,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, roc_curve, auc
+from sklearn.preprocessing import MinMaxScaler
 
 # =============================================================================
 # load data
@@ -22,7 +25,8 @@ register_matplotlib_converters()
 def load_data(tunnel, Class):    
     if tunnel == 'UT':
         # df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
-        df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+        # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
+        df = pd.read_parquet(fr'M:\FMT\2020_Mitarbeiter\Unterlass\02_Forschung\15_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_Qclass.gzip')
         df['Class'] = df['Class'] - 1
         
         # hard drop of outliers which lie beyond the machine limits
@@ -34,7 +38,8 @@ def load_data(tunnel, Class):
     
     elif tunnel == 'BBT':
         # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
-        df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
+        # df = pd.read_parquet(fr'D:\02_Research\01_Unterlass\05_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
+        df = pd.read_parquet(fr'M:\FMT\2020_Mitarbeiter\Unterlass\02_Forschung\15_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed.gzip')
         # df['GI'] = df['GI'] -1
         
         # hard drop of outliers which lie beyond the machine limits
@@ -51,8 +56,9 @@ def load_data(tunnel, Class):
         df.reset_index(inplace=True, drop=True)
         
     if tunnel == 'FB':
-        df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
-        
+        # df = pd.read_parquet(fr'E:\Paul Unterlass\Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
+        df = pd.read_parquet(fr'M:\FMT\2020_Mitarbeiter\Unterlass\02_Forschung\15_Anomaly_detection\01_data\{tunnel}\01_TBM_data_preprocessed_S980.gzip')
+
         # hard drop of outliers which lie beyond the machine limits
         df.drop(df[df['CH Torque [MNm]'] > 16.672].index, inplace=True)
         df.drop(df[df['Thrust Force [kN]'] > 27000].index, inplace=True)
@@ -195,8 +201,8 @@ def load_data(tunnel, Class):
     
     return interval, test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3
 
-tunnel = 'FB' # 'BBT'
-Class = 1 #3 BBT #4 UT #1 FB
+tunnel = 'BBT' # 'BBT'
+Class = 4 #3 BBT #4 UT #1 FB
 
 interval, test_start1, test_start2, test_start3, test_end1, test_end2, test_end3, columns, df, df1, df2, df3 = load_data(tunnel, Class)
 
@@ -390,11 +396,48 @@ def visualize(df, test_start, test_end, file_name):
     cbar.ax.set_ylim(df['Class'].min(), int(df['Class'].max()+1))
     
     fig.tight_layout()
-    plt.savefig(fr'02_Results\{tunnel}\02_Plots\04_isolation_forest\{file_name}_{tunnel}.png', dpi=300)
+    # plt.savefig(fr'02_Results\{tunnel}\02_Plots\04_isolation_forest\{file_name}_{tunnel}.png', dpi=300)
 
 visualize(df1, test_start1, test_end1, 'test_set1')
 visualize(df2, test_start2, test_end2, 'test_set2')
 visualize(df3, test_start3, test_end3, 'test_set3')
+
+# compute and plot confusion matrix
+def confusion_mat(df, test_start, test_end, tunnel, file_name):
+    
+    # Define actual anomalies based on tunnel type
+    class_thresholds = {'UT': 4, 'BBT': 3, 'FB': 1, 'Synth_BBT': 3,
+                        'Synth_BBT_UT': 4}
+    actual_anomalies = df['Class'] >= class_thresholds.get(tunnel, 3)
+    
+    # Compute confusion matrix
+    y_true = actual_anomalies.astype(int)  # Convert boolean to int (0: normal, 1: anomaly)
+    y_pred = (df['anomaly'] == -1).astype(int)  # Convert detected anomalies to boolean (0: normal, 1: anomaly)
+    cm = confusion_matrix(y_true, y_pred)
+
+    plt.figure(figsize=(6,6))
+    ax = sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", 
+            xticklabels=['No Anomaly', 'Anomaly'],
+            yticklabels=['No Anomaly', 'Anomaly'],
+            square=True, cbar=False, linewidths=.5, linecolor='black')
+    
+    # Ensure grid lines appear on all sides by adding a rectangle around the heatmap
+    for _, spine in ax.spines.items():
+        spine.set_visible(True)  # Ensure all spines are visible
+        spine.set_linewidth(.5)  # Set spine thickness
+
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    ax.set_xlabel('Classified Label', fontsize=12, labelpad=15)
+    ax.set_ylabel('Actual Label', fontsize=12, labelpad=15)
+ 
+    plt.tight_layout()
+    
+    plt.savefig(fr'02_Results\{tunnel}\02_Plots\04_isolation_forest\{file_name}_{tunnel}_confusion_matrix.png', dpi=300)
+    
+confusion_mat(df1, test_start1, test_end1, tunnel, 'test_set1')
+confusion_mat(df2, test_start2, test_end2, tunnel, 'test_set2')
+confusion_mat(df3, test_start3, test_end3, tunnel, 'test_set3')
 
 # =============================================================================
 # Forecasting using VAR (vector auto regression)
@@ -660,6 +703,46 @@ visualize_VAR(df1_VAR, test1_anom, test_start1, test_end1, 'test_set1')
 visualize_VAR(df2_VAR, test2_anom, test_start2, test_end2, 'test_set2')
 visualize_VAR(df3_VAR, test3_anom, test_start3, test_end3, 'test_set3')
 
+def confusion_mat(df1, df2, test_start, test_end, tunnel, file_name):
+    
+    # Define actual anomalies based on tunnel type
+    class_thresholds = {'UT': 4, 'BBT': 3, 'FB': 1, 'Synth_BBT': 3,
+                        'Synth_BBT_UT': 4}
+    actual_anomalies = df2['Class'] >= class_thresholds.get(tunnel, 3)
+    
+    # Compute confusion matrix
+    y_true = actual_anomalies.astype(int)  # Convert boolean to int (0: normal, 1: anomaly)
+    df1['Anomaly'] = df1[['Total advance force [kN]', 'spec. penetration [mm/rot/MN]', 'torque ratio']].eq(1).any(axis=1).astype(int)    
+    y_pred = (df1['Anomaly'] == 1).astype(int)  # Convert detected anomalies to boolean (0: normal, 1: anomaly)
+    y_true = y_true.iloc[:len(y_pred)]
+    
+    cm = confusion_matrix(y_true, y_pred)
+    
+    plt.figure(figsize=(6,6))
+    ax = sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", 
+            xticklabels=['No Anomaly', 'Anomaly'],
+            yticklabels=['No Anomaly', 'Anomaly'],
+            square=True, cbar=False, linewidths=.5, linecolor='black')
+    
+    # Ensure grid lines appear on all sides by adding a rectangle around the heatmap
+    for _, spine in ax.spines.items():
+        spine.set_visible(True)  # Ensure all spines are visible
+        spine.set_linewidth(.5)  # Set spine thickness
+
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    ax.set_xlabel('Classified Label', fontsize=12, labelpad=15)
+    ax.set_ylabel('Actual Label', fontsize=12, labelpad=15)
+ 
+    plt.tight_layout()
+    
+    plt.savefig(fr'02_Results\{tunnel}\02_Plots\05_forecasting_VAR\{file_name}_{tunnel}_confusion_matrix.png', dpi=300)
+    
+confusion_mat(test1_anom, df1, test_start1, test_end1, tunnel, 'test_set1')
+confusion_mat(test2_anom, df2, test_start2, test_end2, tunnel, 'test_set2')
+confusion_mat(test3_anom, df3, test_start3, test_end3, tunnel, 'test_set3')
+
+
 # =============================================================================
 # Clustering-based anomaly detection
 # =============================================================================
@@ -763,7 +846,7 @@ for test_set, df in dfs.items():
     # Determine Threshold for Anomalies
     # Set outliers_fraction
     # (e.g., 0.1 indicates 10% of points are considered outliers)
-    outliers_fraction = 0.005
+    outliers_fraction = 0.03
     number_of_outliers = int(len(distances) * outliers_fraction)
     
     # Find the threshold: minimum distance of the top "outliers_fraction" most distant points
@@ -992,6 +1075,43 @@ visualize_clustering_anomalies(df3_clust,
                                test_end3,
                                'test_set3')
 
+def confusion_mat(df, test_start, test_end, tunnel, file_name):
+    
+    # Define actual anomalies based on tunnel type
+    class_thresholds = {'UT': 4, 'BBT': 3, 'FB': 1, 'Synth_BBT': 3,
+                        'Synth_BBT_UT': 4}
+    actual_anomalies = df['Class'] >= class_thresholds.get(tunnel, 3)
+    
+    # Compute confusion matrix
+    y_true = actual_anomalies.astype(int)  # Convert boolean to int (0: normal, 1: anomaly)
+    y_pred = (df['Anomaly'] ==  1).astype(int)  # Convert detected anomalies to boolean (0: normal, 1: anomaly)
+    cm = confusion_matrix(y_true, y_pred)
+
+    plt.figure(figsize=(6,6))
+    ax = sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", 
+            xticklabels=['No Anomaly', 'Anomaly'],
+            yticklabels=['No Anomaly', 'Anomaly'],
+            square=True, cbar=False, linewidths=.5, linecolor='black')
+    
+    # Ensure grid lines appear on all sides by adding a rectangle around the heatmap
+    for _, spine in ax.spines.items():
+        spine.set_visible(True)  # Ensure all spines are visible
+        spine.set_linewidth(.5)  # Set spine thickness
+
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    ax.set_xlabel('Classified Label', fontsize=12, labelpad=15)
+    ax.set_ylabel('Actual Label', fontsize=12, labelpad=15)
+ 
+    plt.tight_layout()
+    
+    plt.savefig(fr'02_Results\{tunnel}\02_Plots\06_clustering\{file_name}_{tunnel}_confusion_matrix.png', dpi=300)
+    
+confusion_mat(df1_clust, test_start1, test_end1, tunnel, 'test_set1')
+confusion_mat(df2_clust, test_start2, test_end2, tunnel, 'test_set2')
+confusion_mat(df3_clust, test_start3, test_end3, tunnel, 'test_set3')
+
+
 # =============================================================================
 # VAE
 # =============================================================================
@@ -1018,10 +1138,12 @@ def visualize_VAE_anomalies(df,
     # read csv with VAE results
     df_VAE = pd.read_csv(fr'02_Results\{tunnel}\02_Plots\07_VAE\{title}_{file_name}')
     # df_VAE = pd.read_csv(fr'02_Results\{tunnel}\02_Plots\07_VAE\Test Dataset 2_{file_name}')
-    start = (df_VAE['Tunnel Distance [km]']*1000).min()
-    stop = (df_VAE['Tunnel Distance [km]']*1000).max()
-    # start = 4901.46
-    # stop = 5246.94
+    # start = (df_VAE['Tunnel Distance [km]']*1000).min()
+    # stop = (df_VAE['Tunnel Distance [km]']*1000).max()
+    
+    length = len(df_VAE)*interval
+    start = df['Tunnel Distance [m]'].min()+2
+    stop = round(start + length, 2)
     
     df_VAE['Tunnel Distance [m]'] = np.arange(start, stop, interval).round(2)
     df_VAE = df_VAE.drop(columns = 'Tunnel Distance [km]')
@@ -1043,7 +1165,7 @@ def visualize_VAE_anomalies(df,
                 anomalies['Total advance force [kN]'], color='red',
                 label='Anomaly')
     ax1.set_ylabel('Total Advance Force [kN]')
-    ax1.set_xlim(test_start * 1000, test_end * 1000)
+    ax1.set_xlim(start, stop)
     ax1.legend(loc='best')
     
     # Plot 2: Specific penetration
@@ -1056,7 +1178,7 @@ def visualize_VAE_anomalies(df,
     ax2.scatter(anomalies['Tunnel Distance [m]'], 
                 anomalies['spec. penetration [mm/rot/MN]'], color='red')
     ax2.set_ylabel('Specific Penetration [mm/rot/MN]')
-    ax2.set_xlim(test_start * 1000, test_end * 1000)
+    ax2.set_xlim(start, stop)
     
     # Plot 3: Torque ratio
     ax3.plot(df_merged['Tunnel Distance [m]'], 
@@ -1068,7 +1190,7 @@ def visualize_VAE_anomalies(df,
                 anomalies['torque ratio'], color='red')
     ax3.set_ylabel('Torque Ratio')
     ax3.set_xlabel('Tunnel Distance [m]')
-    ax3.set_xlim(test_start * 1000, test_end * 1000)
+    ax3.set_xlim(start, stop)
     
     # Color map for clusters
     n_clusters = df_merged['Class'].max() - df_merged['Class'].min() + 1
@@ -1195,12 +1317,15 @@ def visualize_VAE_anomalies(df,
     fig.tight_layout()
     
     # Save the figure
-    plt.savefig(fr'02_Results\{tunnel}\02_Plots\07_VAE\{title}_{file_name}_{tunnel}.png', dpi=300)
-
-
-file_name = 'UT_CLASS4_seq100_beta0.001_ep50_hse30_hsd30_ls3.csv'
+    # plt.savefig(fr'02_Results\{tunnel}\02_Plots\07_VAE\{title}_{file_name}_{tunnel}.png', dpi=300)
     
-visualize_VAE_anomalies(df1,
+    return df_merged
+
+
+# file_name = 'UT_CLASS4_seq100_beta0.001_ep50_hse30_hsd30_ls3.csv'
+file_name = 'BBT_CLASS3_seq100_beta0.001_ep50_hse30_hsd30_ls3.csv'
+    
+df_merged1 = visualize_VAE_anomalies(df1,
                         test_start1,
                         test_end1,
                         file_name,
@@ -1208,8 +1333,7 @@ visualize_VAE_anomalies(df1,
                         tunnel,
                         interval)
 
-
-visualize_VAE_anomalies(df2,
+df_merged2 = visualize_VAE_anomalies(df2,
                         test_start2,
                         test_end2,
                         file_name,
@@ -1217,10 +1341,140 @@ visualize_VAE_anomalies(df2,
                         tunnel,
                         interval)
 
-visualize_VAE_anomalies(df3,
+df_merged3 = visualize_VAE_anomalies(df3,
                         test_start3,
                         test_end3,
                         file_name, 
                         'Test Dataset 3',
                         tunnel,
                         interval)
+
+#  hysteresis based threshold setting
+def label_anomalies(data):
+    """
+    Labels data points as anomalies based on a hysteresis threshold approach.
+
+    Parameters:
+    - data: Pandas Series (e.g., sensor readings or TBM operational values).
+    - upper_threshold: Value above which a point is marked as an anomaly.
+    - lower_threshold: Value below which anomaly labeling stops.
+
+    Returns:
+    - Pandas Series with anomaly labels (1 = Anomaly, 0 = Normal).
+    """
+    anomaly = False  # Tracking whether we are in an anomaly state
+    labels = []  # Store anomaly labels (0 = Normal, 1 = Anomaly)
+    upper_thres = data['Adjusted Threshold'].mean()
+    lower_thres = data['Threshold'].mean()
+    
+    for value in data['Error']:
+        if value >= upper_thres:  # Trigger anomaly labeling
+            anomaly = True
+        elif value <= lower_thres:  # Reset anomaly labeling
+            anomaly = False
+        
+        labels.append(1 if anomaly else 0)  # Assign label based on current state
+    
+    data['Anomalies1'] = pd.Series(labels, index=data.index)
+
+    return data
+
+df_merged1_1 = label_anomalies(df_merged1)
+df_merged2_1 = label_anomalies(df_merged2)
+df_merged3_1 = label_anomalies(df_merged3)
+
+
+def confusion_mat(df, test_start, test_end, tunnel, file_name):
+    
+    # Define actual anomalies based on tunnel type
+    class_thresholds = {'UT': 4, 'BBT': 3, 'FB': 1, 'Synth_BBT': 3,
+                        'Synth_BBT_UT': 4}
+    actual_anomalies = df['Class'] >= class_thresholds.get(tunnel, 3)
+    
+    # Compute confusion matrix
+    y_true = actual_anomalies.astype(int)  # Convert boolean to int (0: normal, 1: anomaly)
+    y_pred = (df['Anomaly'] == 1).astype(int)  # Convert detected anomalies to boolean (0: normal, 1: anomaly)
+    cm = confusion_matrix(y_true, y_pred)
+
+    plt.figure(figsize=(6,6))
+    ax = sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", 
+            xticklabels=['No Anomaly', 'Anomaly'],
+            yticklabels=['No Anomaly', 'Anomaly'],
+            square=True, cbar=False, linewidths=.5, linecolor='black')
+    
+    # Ensure grid lines appear on all sides by adding a rectangle around the heatmap
+    for _, spine in ax.spines.items():
+        spine.set_visible(True)  # Ensure all spines are visible
+        spine.set_linewidth(.5)  # Set spine thickness
+
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    ax.set_xlabel('Classified Label', fontsize=12, labelpad=15)
+    ax.set_ylabel('Actual Label', fontsize=12, labelpad=15)
+ 
+    plt.tight_layout()
+    
+    # plt.savefig(fr'02_Results\{tunnel}\02_Plots\07_VAE\{file_name}_{tunnel}_confusion_matrix.png', dpi=300)
+    return y_true, y_pred
+
+confusion_mat(df_merged1_1, test_start1, test_end1, tunnel, 'test_set1')
+confusion_mat(df_merged2_1, test_start2, test_end2, tunnel, 'test_set2')
+confusion_mat(df_merged3_1, test_start3, test_end3, tunnel, 'test_set3')
+
+# Define actual anomalies based on tunnel type
+class_thresholds = {'UT': 4, 'BBT': 3, 'FB': 1, 'Synth_BBT': 3,
+                    'Synth_BBT_UT': 4}
+actual_anomalies1 = df1['Class'] >= class_thresholds.get(tunnel, 3)
+actual_anomalies2 = df2['Class'] >= class_thresholds.get(tunnel, 3)
+actual_anomalies3 = df3['Class'] >= class_thresholds.get(tunnel, 3)
+
+# Compute confusion matrix
+y_true1 = actual_anomalies1.astype(int)
+y_true2 = actual_anomalies2.astype(int)
+y_true3 = actual_anomalies3.astype(int)
+
+scaler = MinMaxScaler()
+y_scores1 = scaler.fit_transform(df_merged1_1[['Error']])
+y_scores2 = scaler.fit_transform(df_merged2_1[['Error']])
+y_scores3 = scaler.fit_transform(df_merged3_1[['Error']])
+
+y_true1 = y_true1[:len(y_scores1)]
+y_true2 = y_true2[:len(y_scores2)]
+y_true3 = y_true3[:len(y_scores3)]
+
+# Compute ROC curve
+fpr1, tpr1, _ = roc_curve(y_true1, y_scores1)
+# Compute AUC (Area Under Curve)
+roc_auc = auc(fpr1, tpr1)
+print(f"AUC Score: {roc_auc:.3f}")
+
+# Compute ROC curve
+fpr3, tpr3, _ = roc_curve(y_true3, y_scores3)
+# Compute AUC (Area Under Curve)
+roc_auc = auc(fpr3, tpr3)
+print(f"AUC Score: {roc_auc:.3f}")
+
+
+
+# Plot ROC Curve
+plt.figure(figsize=(6, 6))
+plt.plot(fpr1, tpr1, color='blue', lw=2, label=f'ROC Curve (AUC = {roc_auc:.3f})')
+plt.plot([0, 1], [0, 1], color='gray', linestyle='--', lw=1)  # Diagonal line (random model)
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic (ROC) Curve')
+plt.legend(loc='lower right')
+plt.grid()
+
+plt.figure(figsize=(6, 6))
+plt.plot(fpr3, tpr3, color='blue', lw=2, label=f'ROC Curve (AUC = {roc_auc:.3f})')
+plt.plot([0, 1], [0, 1], color='gray', linestyle='--', lw=1)  # Diagonal line (random model)
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic (ROC) Curve')
+plt.legend(loc='lower right')
+plt.grid()
