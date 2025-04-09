@@ -1,4 +1,4 @@
-#TBM_anomaly_detection
+# TBM_anomaly_detection
 
 Code and data repository for the paper TBM Operational Data-Driven Anomaly Detection in Hard Rock Excavations by Paul Unterlaß1, Mario Wölflingseder1, Thomas Marcher1
 
