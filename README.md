@@ -1,6 +1,6 @@
 # TBM_anomaly_detection
 
-Code and data repository for the paper **TBM Operational Data-Driven Anomaly Detection in Hard Rock Excavations** by Paul J. Unterlaß<sup>1</sup>, Mario Wölflingseder<sup>1</sup>, Thomas Marcher<sup>1</sup>
+Code and data repository for the paper **TBM Operational Data-Driven Anomaly Detection in Hard Rock Excavations** by Paul J. Unterlaß<sup>1</sup>, Mario Wölflingseder<sup>1</sup>, Thomas Marcher<sup>1</sup> submitted for publication at the 9th of April 2025 to the journal "Tunnelling and Underground Space Technology".
 
 1)    Institute of Rock Mechanics and Tunnelling, Graz University of Technology, Rechbauerstraße 12, Graz, Austria
 
