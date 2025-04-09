@@ -13,6 +13,7 @@ Code authors: Paul J. Unterlass & Mario Wölflingseder
 The synthetic Tunnel Boring Machine (TBM) operational data can be found in the folder "data". Datasets for 2 different TBMs are available, denoted as TBM A, -B. The data was synthezised using generative adverserial networks (GANs) based on real TBM operational data.
 Further synthetic data and the code of GANs can be found in the following Github repository: https://github.com/geograz/TBM_advance_classification
 Further information on the synthetic data in can be found in the following publications: https://doi.org/10.1007/s00603-025-04542-4 (open access) and https://doi.org/10.1007/978-3-031-20241-4_1
+In the folder `src` the code for pre-processing of the datasets, the VAE model, the VAE training/validation/testing pipeline and the alternative anomaly detection techniques can be found.
 
 ## Requirements
 
