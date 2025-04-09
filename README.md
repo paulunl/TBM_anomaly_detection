@@ -14,8 +14,11 @@ The synthetic Tunnel Boring Machine (TBM) operational data can be found in the f
 Further synthetic data and the code of GANs can be found in the following Github repository: https://github.com/geograz/TBM_advance_classification
 Further information on the synthetic data in can be found in the following publications: https://doi.org/10.1007/s00603-025-04542-4 (open access) and https://doi.org/10.1007/978-3-031-20241-4_1
 
-## TBM anomaly detection models
+## TBM anomaly detection code
 In the folder `src` the code for pre-processing of the datasets, the variational autoencoder (VAE) model, the VAE training/validation/testing pipeline and the alternative anomaly detection techniques can be found.
+
+## Pre-trained VAE models and results
+In the folder `results` various pre-trained VAE models and the anomaly detection results can be found.
 
 ## Requirements
 
