@@ -32,7 +32,7 @@ conda env create --file environment.yaml
 Activate the new environment with:
 
 ```bash
-conda activate Jv
+conda activate TBM_anomaly_detection
 ```
 
 ### contact
