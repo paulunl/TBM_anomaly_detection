@@ -1,0 +1,19 @@
+name: TBM_anomaly_detection
+channels:
+  - conda-forge
+  - defaults
+  - pytorch
+dependencies:
+  - matplotlib=3.8.0
+  - numpy=1.24.3
+  - pandas=2.1.4
+  - python=3.11.5
+  - pytorch=2.2.1
+  - scipy=1.11.4
+  - seaborn=0.12.2
+  - spyder=5.4.3
+  - tqdm=4.65.0
+- pip:
+  - scikit-optimize==0.10.2
+  - torchaudio==2.2.1
+  - torchvision==0.17.1
