@@ -6,7 +6,7 @@ Code and data repository for the paper **TBM Operational Data-Driven Anomaly Det
 
 [Link to the published paper](https://www.sciencedirect.com/science/article/pii/S0886779825008375).
 
-DOI: https://doi.org/10.1007/s00603-025-04542-4
+DOI: https://doi.org/10.1016/j.tust.2025.107199
 
 Code authors: Paul J. Unterlass & Mario Wölflingseder
 
